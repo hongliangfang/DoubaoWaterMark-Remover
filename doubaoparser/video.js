@@ -9,6 +9,7 @@
   const CAPTURE_MODE_CURRENT = "current_only";
   const FALLBACK_HOSTS = ["doubao.com", "snssdk.com", "byteintlapi.com", "douyin.com"];
   const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "mkv"]);
+  const DEFAULT_DOWNLOAD_SUBDIR = "Doubao";
   let _opaqueSaltHex = "";
 
   const downloadQueue = [];
@@ -17,6 +18,46 @@
   let activeDownloads = 0;
   let captureMode = CAPTURE_MODE_CURRENT;
   let extensionEnabled = true;
+
+  function sanitizeDownloadSegment(value) {
+    return String(value || "")
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+      .replace(/\.\.+/g, "_")
+      .replace(/^\.+$/, "_")
+      .trim()
+      .slice(0, 120);
+  }
+
+  function normalizeDownloadSubdir(value) {
+    return String(value || "")
+      .replace(/\\/g, "/")
+      .split("/")
+      .map(sanitizeDownloadSegment)
+      .filter(Boolean)
+      .slice(0, 8)
+      .join("/");
+  }
+
+  function joinDownloadPath(prefix, filename) {
+    const cleanFilename = String(filename || "")
+      .replace(/\\/g, "/")
+      .split("/")
+      .map(sanitizeDownloadSegment)
+      .filter(Boolean)
+      .join("/");
+    const cleanPrefix = normalizeDownloadSubdir(prefix);
+    return cleanPrefix ? `${cleanPrefix}/${cleanFilename}` : cleanFilename;
+  }
+
+  function getDownloadSettings() {
+    return storageGet({
+      downloadSubdir: DEFAULT_DOWNLOAD_SUBDIR,
+      downloadAskLocation: false
+    }).then((stored) => ({
+      downloadSubdir: normalizeDownloadSubdir(stored.downloadSubdir),
+      downloadAskLocation: stored.downloadAskLocation === true
+    }));
+  }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local") return;
@@ -510,8 +551,10 @@
     pumpVideoDownloads();
   }
 
-  function pumpVideoDownloads() {
-    while (activeDownloads < DOWNLOAD_CONCURRENCY && downloadQueue.length) {
+  async function pumpVideoDownloads() {
+    const settings = await getDownloadSettings().catch(() => ({ downloadAskLocation: false }));
+    const concurrency = settings.downloadAskLocation ? 1 : DOWNLOAD_CONCURRENCY;
+    while (activeDownloads < concurrency && downloadQueue.length) {
       const job = downloadQueue.shift();
       activeDownloads += 1;
       runVideoDownload(job.video)
@@ -535,6 +578,7 @@
         const media = await resolveFallbackVideo(video.fallback_api);
         const url = media.url || video.url;
         if (!isHttpUrl(url)) throw new Error("无水印视频地址已失效");
+        const settings = await getDownloadSettings();
         notify({
           type: attempt > 1 ? "VIDEO_DOWNLOAD_RETRYING" : "VIDEO_DOWNLOAD_STARTED",
           video_record_id: video.video_record_id,
@@ -543,9 +587,12 @@
         });
         const downloadId = await startChromeDownload({
           url,
-          filename: buildVideoFilename(video, media),
+          filename: joinDownloadPath(
+            settings.downloadSubdir,
+            buildVideoFilename(video, media)
+          ),
           conflictAction: "uniquify",
-          saveAs: false
+          saveAs: settings.downloadAskLocation
         });
         const result = await waitForDownload(downloadId);
         if (result.state === "complete") {
