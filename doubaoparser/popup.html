@@ -35,6 +35,24 @@
       <button type="button" class="media-tab" data-kind="image">图片</button>
       <button type="button" class="media-tab" data-kind="video">视频</button>
     </div>
+
+    <details class="download-settings" open>
+      <summary>下载设置</summary>
+      <div class="download-settings-body">
+        <label class="setting-label" for="download-subdir">保存子目录</label>
+        <div class="setting-inline">
+          <input id="download-subdir" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Doubao">
+          <button id="save-download-settings" class="secondary" type="button">保存</button>
+        </div>
+        <label class="setting-check">
+          <input id="download-ask-location" type="checkbox">
+          <span>每次下载前询问保存位置</span>
+        </label>
+        <p id="download-settings-hint" class="setting-hint">
+          子目录位于 Chrome 系统“下载”目录下；勾选后可在每次下载时选择任意文件夹。
+        </p>
+      </div>
+    </details>
   </section>
 
   <section id="toolbar" hidden>
