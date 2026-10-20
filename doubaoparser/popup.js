@@ -7,6 +7,7 @@ const elements = Object.fromEntries([
   "gallery", "count", "conversation-filter",
   "clear-all", "video-status", "status-chip",
   "contact-btn", "media-tabs",
+  "download-subdir", "download-ask-location", "save-download-settings", "download-settings-hint",
   "toolbar", "select-all", "selected-count", "batch-download", "notice", "loading",
   "empty", "error"
 ].map((id) => [id.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), document.getElementById(id)]));
@@ -26,6 +27,39 @@ function sendMessage(message) {
     if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
     else resolve(response || { ok: true });
   }));
+}
+
+async function loadDownloadSettings() {
+  const response = await sendMessage({ type: "GET_DOWNLOAD_SETTINGS" });
+  if (response?.ok === false) {
+    showNotice(`下载设置读取失败：${response.error}`, true);
+    return;
+  }
+  elements.downloadSubdir.value = response.downloadSubdir || "";
+  elements.downloadAskLocation.checked = response.downloadAskLocation === true;
+  updateDownloadSettingsHint();
+}
+
+function updateDownloadSettingsHint() {
+  elements.downloadSettingsHint.textContent = elements.downloadAskLocation.checked
+    ? "已开启位置询问；单项或批量下载时会由 Chrome 弹出保存位置选择器。"
+    : "保存到 Chrome 系统“下载”目录下的相对子目录；勾选位置询问可选择任意文件夹。";
+}
+
+async function saveDownloadSettings() {
+  const response = await sendMessage({
+    type: "SET_DOWNLOAD_SETTINGS",
+    downloadSubdir: elements.downloadSubdir.value,
+    downloadAskLocation: elements.downloadAskLocation.checked
+  });
+  if (response?.ok === false) {
+    showNotice(`下载设置保存失败：${response.error}`, true);
+    return;
+  }
+  elements.downloadSubdir.value = response.downloadSubdir || "";
+  elements.downloadAskLocation.checked = response.downloadAskLocation === true;
+  updateDownloadSettingsHint();
+  showNotice("下载设置已保存");
 }
 
 function sendTabMessage(tabId, message) {
@@ -530,6 +564,8 @@ async function copyWechatId() {
 }
 
 elements.conversationFilter.addEventListener("change", () => { selected.clear(); render(); });
+elements.downloadAskLocation.addEventListener("change", updateDownloadSettingsHint);
+elements.saveDownloadSettings.addEventListener("click", saveDownloadSettings);
 elements.mediaTabs.addEventListener("click", (event) => {
   const button = event.target.closest(".media-tab");
   if (!button) return;
@@ -589,6 +625,7 @@ window.addEventListener("unload", () => { for (const url of objectUrls) URL.revo
 
 async function initialize() {
   setMediaKind("all");
+  await loadDownloadSettings();
   await loadCaptureMode();
   await loadCaptureStatus();
   await loadMedia({ keepFilter: false, preferCurrent: true });
