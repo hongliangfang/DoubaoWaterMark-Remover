@@ -7,7 +7,7 @@ const elements = Object.fromEntries([
   "gallery", "count", "conversation-filter",
   "clear-all", "video-status", "status-chip",
   "contact-btn", "media-tabs",
-  "download-subdir", "download-ask-location", "save-download-settings", "download-settings-hint",
+  "download-subdir", "download-quality", "download-ask-location", "save-download-settings", "download-settings-hint",
   "toolbar", "select-all", "selected-count", "batch-download", "notice", "loading",
   "empty", "error"
 ].map((id) => [id.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), document.getElementById(id)]));
@@ -36,20 +36,22 @@ async function loadDownloadSettings() {
     return;
   }
   elements.downloadSubdir.value = response.downloadSubdir || "";
+  elements.downloadQuality.value = response.downloadQuality || "high";
   elements.downloadAskLocation.checked = response.downloadAskLocation === true;
   updateDownloadSettingsHint();
 }
 
 function updateDownloadSettingsHint() {
   elements.downloadSettingsHint.textContent = elements.downloadAskLocation.checked
-    ? "已开启位置询问；单项或批量下载时会由 Chrome 弹出保存位置选择器。"
-    : "保存到 Chrome 系统“下载”目录下的相对子目录；勾选位置询问可选择任意文件夹。";
+    ? "已开启位置询问；Chrome/Edge 会对每个文件逐项弹出保存位置。"
+    : "保存到浏览器默认下载目录下的相对子目录；画质档均以无水印原图为来源。";
 }
 
 async function saveDownloadSettings() {
   const response = await sendMessage({
     type: "SET_DOWNLOAD_SETTINGS",
     downloadSubdir: elements.downloadSubdir.value,
+    downloadQuality: elements.downloadQuality.value,
     downloadAskLocation: elements.downloadAskLocation.checked
   });
   if (response?.ok === false) {
@@ -57,6 +59,7 @@ async function saveDownloadSettings() {
     return;
   }
   elements.downloadSubdir.value = response.downloadSubdir || "";
+  elements.downloadQuality.value = response.downloadQuality || "high";
   elements.downloadAskLocation.checked = response.downloadAskLocation === true;
   updateDownloadSettingsHint();
   showNotice("下载设置已保存");
