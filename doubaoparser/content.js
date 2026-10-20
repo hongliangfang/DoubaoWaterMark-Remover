@@ -382,9 +382,11 @@
     async function loadDownloadSettings() {
       const response = await sendRuntimeMessage({ type: "GET_DOWNLOAD_SETTINGS" });
       if (response?.ok === false) {
+        settingsHint.style.color = "#b91c1c";
         settingsHint.textContent = "读取失败：" + (response.error || "未知错误");
         return;
       }
+      settingsHint.style.color = "";
       settingsSubdir.value = response.downloadSubdir || "";
       settingsQuality.value = response.downloadQuality || "high";
       settingsAskLocation.checked = response.downloadAskLocation === true;
@@ -435,6 +437,7 @@
       });
       settingsSave.disabled = false;
       if (response?.ok === false) {
+        settingsHint.style.color = "#b91c1c";
         settingsHint.textContent = "保存失败：" + (response.error || "未知错误");
         return;
       }
@@ -442,7 +445,12 @@
       settingsQuality.value = response.downloadQuality || "high";
       settingsAskLocation.checked = response.downloadAskLocation === true;
       updateSettingsHint();
-      settingsPanel.hidden = true;
+      settingsHint.style.color = "#15803d";
+      settingsHint.textContent = `设置已保存：${response.downloadSubdir || "默认下载目录"} · ${response.downloadQuality || "high"}`;
+      setTimeout(() => {
+        settingsHint.style.color = "";
+        settingsPanel.hidden = true;
+      }, 900);
       setStatus("captured");
     });
 
