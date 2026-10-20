@@ -44,12 +44,18 @@
           <input id="download-subdir" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Doubao">
           <button id="save-download-settings" class="secondary" type="button">保存</button>
         </div>
+        <label class="setting-label" for="download-quality">下载画质</label>
+        <select id="download-quality" class="setting-select">
+          <option value="high">高清原图（无水印）</option>
+          <option value="balanced">标准高清（无水印，较小）</option>
+          <option value="compact">节省空间（无水印，压缩）</option>
+        </select>
         <label class="setting-check">
           <input id="download-ask-location" type="checkbox">
           <span>每次下载前询问保存位置</span>
         </label>
         <p id="download-settings-hint" class="setting-hint">
-          子目录位于 Chrome 系统“下载”目录下；勾选后可在每次下载时选择任意文件夹。
+          基础目录由浏览器的下载目录决定；这里设置子目录和画质。
         </p>
       </div>
     </details>
