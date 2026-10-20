@@ -682,33 +682,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "DOWNLOAD_IMAGE") {
+    const imageId = message.image?.image_id || "";
+    // 先确认任务已进入队列，再在后台准备原图和启动 Chrome 下载。
+    // 原来要等原图缓存、缩略图生成和 downloads.download 回调完成后才回复，
+    // 页面面板会一直显示“提交…”，网络较慢时尤其明显。
     queueDownload(message.image)
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
-    return true;
+      .catch((error) => notifyRuntime({
+        type: "DOWNLOAD_FAILED",
+        image_id: imageId,
+        error: error.message
+      }));
+    sendResponse({ ok: true, queued: 1, image_id: imageId });
+    return false;
   }
 
   if (message.type === "BATCH_DOWNLOAD") {
+    const images = Array.isArray(message.images) ? message.images.slice(0, 100) : [];
+    if (!images.length) {
+      sendResponse({ ok: false, error: "没有可下载的图片" });
+      return false;
+    }
+    // 批量任务同样立即确认，避免页面“全部下载”按钮等待所有原图准备完成。
     (async () => {
-      try {
-        const images = Array.isArray(message.images) ? message.images.slice(0, 100) : [];
-        const settings = await getDownloadSettings();
-        // Chrome 的 saveAs 对话框需要串行打开，避免批量下载同时弹出多个选择器。
-        const concurrency = settings.downloadAskLocation ? 1 : 4;
-        const results = await mapLimit(images, concurrency, async (image, index) => {
-          try {
-            return { ok: true, ...(await queueDownload(image, index + 1)) };
-          } catch (error) {
-            return { ok: false, error: error.message };
-          }
-        });
-        const success = results.filter((item) => item.ok).length;
-        sendResponse({ ok: success > 0, success, failed: results.length - success, results });
-      } catch (error) {
-        sendResponse({ ok: false, error: error.message });
-      }
-    })();
-    return true;
+      const settings = await getDownloadSettings().catch(() => ({ downloadAskLocation: false }));
+      // Chrome 的 saveAs 对话框需要串行打开，避免批量下载同时弹出多个选择器。
+      const concurrency = settings.downloadAskLocation ? 1 : 4;
+      const results = await mapLimit(images, concurrency, async (image, index) => {
+        try {
+          return { ok: true, ...(await queueDownload(image, index + 1)) };
+        } catch (error) {
+          return { ok: false, image_id: image?.image_id || "", error: error.message };
+        }
+      });
+      const success = results.filter((item) => item.ok).length;
+      notifyRuntime({
+        type: "BATCH_DOWNLOAD_COMPLETE",
+        success,
+        failed: results.length - success,
+        total: results.length
+      });
+    })().catch((error) => notifyRuntime({
+      type: "BATCH_DOWNLOAD_FAILED",
+      error: error.message,
+      total: images.length
+    }));
+    sendResponse({ ok: true, queued: images.length });
+    return false;
   }
 
   if (message.type === "DELETE_IMAGE") {
