@@ -10,6 +10,7 @@
   const FALLBACK_HOSTS = ["doubao.com", "snssdk.com", "byteintlapi.com", "douyin.com"];
   const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "mkv"]);
   const DEFAULT_DOWNLOAD_SUBDIR = "Doubao";
+  const DEFAULT_DOWNLOAD_QUALITY = "high";
   let _opaqueSaltHex = "";
 
   const downloadQueue = [];
@@ -38,6 +39,10 @@
       .join("/");
   }
 
+  function normalizeDownloadQuality(value) {
+    return value === "balanced" || value === "compact" ? value : DEFAULT_DOWNLOAD_QUALITY;
+  }
+
   function joinDownloadPath(prefix, filename) {
     const cleanFilename = String(filename || "")
       .replace(/\\/g, "/")
@@ -52,10 +57,12 @@
   function getDownloadSettings() {
     return storageGet({
       downloadSubdir: DEFAULT_DOWNLOAD_SUBDIR,
-      downloadAskLocation: false
+      downloadAskLocation: false,
+      downloadQuality: DEFAULT_DOWNLOAD_QUALITY
     }).then((stored) => ({
       downloadSubdir: normalizeDownloadSubdir(stored.downloadSubdir),
-      downloadAskLocation: stored.downloadAskLocation === true
+      downloadAskLocation: stored.downloadAskLocation === true,
+      downloadQuality: normalizeDownloadQuality(stored.downloadQuality)
     }));
   }
 
@@ -203,7 +210,7 @@
     const entries = mapFallbackItems(items, meta.chat_id).slice(0, MAX_CAPTURED_PER_RESPONSE);
     if (!entries.length) return;
     const resolved = await mapConcurrent(entries, 3, async (entry) => {
-      const media = await resolveFallbackVideo(entry.url);
+      const media = await resolveFallbackVideo(entry.url, DEFAULT_DOWNLOAD_QUALITY);
       if (!media.url) return null;
       return persistResolvedVideo(meta, entry, media);
     });
@@ -281,7 +288,7 @@
   async function refreshStoredVideo(value) {
     const record = normalizeVideoRecord(value);
     if (!record) throw new Error("视频记录无效");
-    const media = await resolveFallbackVideo(record.fallback_api);
+    const media = await resolveFallbackVideo(record.fallback_api, DEFAULT_DOWNLOAD_QUALITY);
     if (!media.url) throw new Error("未解析到无水印视频地址，请重新打开对应会话后重试");
     const updated = {
       ...record,
@@ -362,7 +369,7 @@
     return "";
   }
 
-  async function resolveFallbackVideo(fallbackApi) {
+  async function resolveFallbackVideo(fallbackApi, quality = DEFAULT_DOWNLOAD_QUALITY) {
     if (!isAllowedFallbackUrl(fallbackApi)) return emptyMedia();
     try {
       const requestUrl = replaceQueryParams(fallbackApi, {
@@ -378,7 +385,7 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       const data = getVideoData(payload);
-      const entry = pickHighestQuality(data);
+      const entry = pickQuality(data, quality);
       const url = entry.token ? await decodeMainUrl(entry.token, findKeySeed(payload)) : "";
       if (!isHttpUrl(url)) return emptyMedia();
       return {
@@ -403,10 +410,10 @@
     return info?.data || info || {};
   }
 
-  function pickHighestQuality(data) {
+  function videoCandidates(data) {
     const list = data?.video_list;
     const values = list && typeof list === "object" && Object.keys(list).length ? Object.values(list) : [data];
-    let best = null;
+    const candidates = [];
     for (const value of values) {
       if (!value || typeof value !== "object") continue;
       const token = value.main_url || value.play_url || "";
@@ -421,9 +428,25 @@
         definition: String(value.definition || value.quality || ""),
         videoId: String(value.file_id || data.video_id || "")
       };
-      if (!best || higherQuality(candidate, best)) best = candidate;
+      candidates.push(candidate);
     }
-    return best || { token: "", width: 0, height: 0, bitrate: 0, size: 0, format: "mp4", definition: "", videoId: "" };
+    return candidates;
+  }
+
+  function pickQuality(data, quality = DEFAULT_DOWNLOAD_QUALITY) {
+    const candidates = videoCandidates(data);
+    if (!candidates.length) return { token: "", width: 0, height: 0, bitrate: 0, size: 0, format: "mp4", definition: "", videoId: "" };
+    if (quality === DEFAULT_DOWNLOAD_QUALITY) {
+      return candidates.reduce((best, candidate) => !best || higherQuality(candidate, best) ? candidate : best, null);
+    }
+    const maxHeight = quality === "compact" ? 720 : 1080;
+    const compatible = candidates.filter((candidate) => candidate.height > 0 && candidate.height <= maxHeight);
+    const pool = compatible.length ? compatible : candidates;
+    return pool.reduce((best, candidate) => !best || higherQuality(candidate, best) ? candidate : best, null);
+  }
+
+  function pickHighestQuality(data) {
+    return pickQuality(data, DEFAULT_DOWNLOAD_QUALITY);
   }
 
   function higherQuality(a, b) {
@@ -575,10 +598,10 @@
     let lastError = new Error("视频下载失败");
     for (let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt += 1) {
       try {
-        const media = await resolveFallbackVideo(video.fallback_api);
+        const settings = await getDownloadSettings();
+        const media = await resolveFallbackVideo(video.fallback_api, settings.downloadQuality);
         const url = media.url || video.url;
         if (!isHttpUrl(url)) throw new Error("无水印视频地址已失效");
-        const settings = await getDownloadSettings();
         notify({
           type: attempt > 1 ? "VIDEO_DOWNLOAD_RETRYING" : "VIDEO_DOWNLOAD_STARTED",
           video_record_id: video.video_record_id,
