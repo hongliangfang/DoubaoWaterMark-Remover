@@ -91,9 +91,9 @@
       <style>
         *{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif}
         button{font:inherit;cursor:pointer}
-        #panel{display:flex;flex-direction:column;width:326px;height:280px;max-height:320px;overflow:hidden;border:1px solid rgba(0,87,255,.18);border-radius:14px;
+        #panel{display:flex;flex-direction:column;width:326px;height:280px;min-width:260px;min-height:180px;max-width:calc(100vw - 32px);max-height:calc(100vh - 48px);overflow:hidden;border:1px solid rgba(0,87,255,.18);border-radius:14px;
           background:#fff;color:#27272a;box-shadow:0 16px 40px rgba(20,45,90,.18)}
-        header{display:grid;grid-template-columns:28px minmax(0,1fr) 28px;flex:0 0 auto;align-items:center;gap:9px;padding:10px 11px;background:linear-gradient(110deg,#0057ff,#2387ff);color:#fff;cursor:move;user-select:none;touch-action:none}
+        header{display:grid;grid-template-columns:28px minmax(0,1fr) 28px 28px;flex:0 0 auto;align-items:center;gap:9px;padding:10px 11px;background:linear-gradient(110deg,#0057ff,#2387ff);color:#fff;cursor:move;user-select:none;touch-action:none}
         header .icon{cursor:pointer}
         .title{min-width:0;text-align:center}.title strong{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}.title strong span{display:inline;margin:0;color:#fff;font-size:13px}
         .state-dot{width:7px;height:7px;border-radius:50%;background:#35dc72;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
@@ -115,13 +115,42 @@
         #download-all{background:#2563eb;color:#fff}
         #download-all svg{stroke:currentColor;fill:none}
         #download-all:disabled{opacity:.45;cursor:not-allowed}
+        #settings{background:#eff6ff;color:#1d4ed8}
+        #settings:hover{background:#dbeafe}
+        #settings svg{stroke:currentColor;fill:none}
+        #settings-panel{flex:0 0 auto;padding:9px 10px;border-top:1px solid #e4e4e7;background:#fff}
+        #settings-panel[hidden]{display:none}
+        .settings-title{font-size:11px;font-weight:700;color:#27272a}
+        .settings-label{display:block;margin-top:7px;color:#52525b;font-size:10px}
+        .settings-input-row{display:flex;gap:6px;margin-top:5px}
+        .settings-input-row input{min-width:0;flex:1;height:29px;padding:0 8px;border:1px solid #d4d4d8;border-radius:7px;color:#27272a;font-size:10px;outline:none}
+        .settings-input-row input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+        .settings-check{display:flex;align-items:center;gap:6px;margin-top:8px;color:#52525b;font-size:10px}
+        .settings-check input{margin:0}
+        .settings-hint{margin:7px 0 0;color:#71717a;font-size:9px;line-height:1.45}
+        .settings-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+        .settings-actions button{height:27px;padding:0 9px;border:0;border-radius:7px;font-size:10px}
+        #settings-cancel{background:#f4f4f5;color:#52525b}
+        #settings-save{background:#2563eb;color:#fff}
+        #resize-handle{position:absolute;right:3px;bottom:3px;width:17px;height:17px;padding:0;border:0;border-radius:5px;background:transparent;cursor:nwse-resize;touch-action:none;opacity:.6}
+        #resize-handle:hover{background:#eff6ff;opacity:1}
+        #resize-handle::after{content:"";position:absolute;right:3px;bottom:3px;width:8px;height:8px;border-right:2px solid #2563eb;border-bottom:2px solid #2563eb}
+        #panel.collapsed #resize-handle{display:none}
         #launcher{display:none;width:46px;height:46px;border:0;border-radius:50%;background:#0057ff;color:#fff;font-size:20px;box-shadow:0 8px 24px rgba(0,87,255,.3)}
         #panel.closed{display:none}#panel.closed+#launcher{display:block}
       </style>
       <section id="panel">
-        <header><button id="collapse" class="icon" title="收起面板" aria-label="收起或展开面板"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="title"><strong><span>加载成功</span><i class="state-dot"></i></strong></div><button id="close" class="icon" title="关闭">×</button></header>
+        <header><button id="collapse" class="icon" title="收起面板" aria-label="收起或展开面板"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="title"><strong><span>加载成功</span><i class="state-dot"></i></strong></div><button id="settings" class="icon" title="下载设置" aria-label="下载设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm0-5.2 1.1 2.1 2.4-.5 1.8-1.4 1.8 1.8-1.4 1.8.5 2.4 2.1 1.1v2.6l-2.1 1.1-.5 2.4 1.4 1.8-1.8 1.8-1.8-1.4-1.1 2.1h-2.6l-1.1-2.1-2.4-.5-1.8 1.4-1.8-1.8 1.4-1.8-.5-2.4-2.1-1.1v-2.6l-2.1-1.1-1.4-1.8 1.8-1.8 1.8 1.4 2.4-.5L9.4 3H12Z" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="close" class="icon" title="关闭">×</button></header>
         <nav id="tabs"><button class="tab active" data-type="image">图片 <b id="image-count">0</b></button><button class="tab" data-type="video">视频 <b id="video-count">0</b></button></nav>
         <div id="body"><div id="list"><div class="empty">当前会话暂未识别到图片</div></div></div>
+        <section id="settings-panel" hidden aria-label="下载设置">
+          <div class="settings-title">下载设置</div>
+          <label class="settings-label" for="settings-subdir">保存子目录</label>
+          <div class="settings-input-row"><input id="settings-subdir" type="text" placeholder="Doubao" autocomplete="off" spellcheck="false"></div>
+          <label class="settings-check"><input id="settings-ask-location" type="checkbox"><span>每次下载前询问保存位置</span></label>
+          <div id="settings-hint" class="settings-hint">默认保存到 Chrome 下载目录下的子目录。</div>
+          <div class="settings-actions"><button id="settings-cancel" type="button">取消</button><button id="settings-save" type="button">保存设置</button></div>
+        </section>
         <footer>
           <button id="support-author" type="button" title="支持作者十一木">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 5.6a5.1 5.1 0 0 0-7.2 0L12 7.2l-1.6-1.6a5.1 5.1 0 0 0-7.2 7.2l1.6 1.6L12 21.2l7.2-7.2 1.6-1.6a5.1 5.1 0 0 0 0-7.2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -132,6 +161,7 @@
             <span>全部下载</span>
           </button>
         </footer>
+        <button id="resize-handle" type="button" title="拖拽调整面板大小" aria-label="拖拽调整面板大小"></button>
       </section>
       <button id="launcher" title="打开无水印媒体面板">◈</button>
     `;
@@ -140,7 +170,15 @@
     const header = shadow.querySelector("header");
     const list = shadow.getElementById("list");
     const supportAuthor = shadow.getElementById("support-author");
+    const settingsButton = shadow.getElementById("settings");
+    const settingsPanel = shadow.getElementById("settings-panel");
+    const settingsSubdir = shadow.getElementById("settings-subdir");
+    const settingsAskLocation = shadow.getElementById("settings-ask-location");
+    const settingsHint = shadow.getElementById("settings-hint");
+    const settingsCancel = shadow.getElementById("settings-cancel");
+    const settingsSave = shadow.getElementById("settings-save");
     const downloadAll = shadow.getElementById("download-all");
+    enablePanelResize(panel, shadow.getElementById("resize-handle"));
     const objectUrls = new Set();
     let activeType = "image";
 
@@ -166,6 +204,54 @@
       activeType = button.dataset.type;
       render();
     }));
+
+    function updateSettingsHint() {
+      settingsHint.textContent = settingsAskLocation.checked
+        ? "开启后单项或批量下载会由 Chrome 询问保存位置。"
+        : "保存到 Chrome 下载目录下的相对子目录。";
+    }
+
+    async function loadDownloadSettings() {
+      const response = await sendRuntimeMessage({ type: "GET_DOWNLOAD_SETTINGS" });
+      if (response?.ok === false) {
+        settingsHint.textContent = "读取失败：" + (response.error || "未知错误");
+        return;
+      }
+      settingsSubdir.value = response.downloadSubdir || "";
+      settingsAskLocation.checked = response.downloadAskLocation === true;
+      updateSettingsHint();
+    }
+
+    settingsButton.addEventListener("click", async () => {
+      settingsPanel.hidden = !settingsPanel.hidden;
+      if (!settingsPanel.hidden) {
+        await loadDownloadSettings();
+        settingsSubdir.focus();
+      }
+    });
+
+    settingsCancel.addEventListener("click", () => {
+      settingsPanel.hidden = true;
+    });
+
+    settingsSave.addEventListener("click", async () => {
+      settingsSave.disabled = true;
+      const response = await sendRuntimeMessage({
+        type: "SET_DOWNLOAD_SETTINGS",
+        downloadSubdir: settingsSubdir.value,
+        downloadAskLocation: settingsAskLocation.checked
+      });
+      settingsSave.disabled = false;
+      if (response?.ok === false) {
+        settingsHint.textContent = "保存失败：" + (response.error || "未知错误");
+        return;
+      }
+      settingsSubdir.value = response.downloadSubdir || "";
+      settingsAskLocation.checked = response.downloadAskLocation === true;
+      updateSettingsHint();
+      settingsPanel.hidden = true;
+      setStatus("captured");
+    });
 
     supportAuthor.addEventListener("click", () => {
       window.open(SUPPORT_URL, "_blank", "noopener,noreferrer");
@@ -316,6 +402,89 @@
     extensionEnabled = changes.extensionEnabled.newValue !== false;
     applyExtensionEnabled();
   });
+
+  function enablePanelResize(panel, handle) {
+    const SIZE_KEY = "doubaoMediaPanelSize_v1";
+    const MIN_WIDTH = 260;
+    const MIN_HEIGHT = 180;
+    let resizing = false;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+
+    function limits() {
+      return {
+        maxWidth: Math.max(MIN_WIDTH, Math.min(720, window.innerWidth - 32)),
+        maxHeight: Math.max(MIN_HEIGHT, Math.min(Math.floor(window.innerHeight * 0.82), window.innerHeight - 48))
+      };
+    }
+
+    function applySize(width, height) {
+      const { maxWidth, maxHeight } = limits();
+      const nextWidth = Math.min(maxWidth, Math.max(MIN_WIDTH, Math.round(width)));
+      const nextHeight = Math.min(maxHeight, Math.max(MIN_HEIGHT, Math.round(height)));
+      panel.style.width = nextWidth + "px";
+      panel.style.height = nextHeight + "px";
+    }
+
+    function restoreSize() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SIZE_KEY) || "null");
+        if (Number.isFinite(saved?.width) && Number.isFinite(saved?.height)) {
+          applySize(saved.width, saved.height);
+        }
+      } catch (_) {
+        // ignore malformed local settings
+      }
+    }
+
+    function saveSize() {
+      const rect = panel.getBoundingClientRect();
+      try {
+        localStorage.setItem(SIZE_KEY, JSON.stringify({
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        }));
+      } catch (_) {
+        // ignore private mode / quota failures
+      }
+    }
+
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      resizing = true;
+      const rect = panel.getBoundingClientRect();
+      startX = event.clientX;
+      startY = event.clientY;
+      startWidth = rect.width;
+      startHeight = rect.height;
+      handle.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    handle.addEventListener("pointermove", (event) => {
+      if (!resizing) return;
+      applySize(startWidth + event.clientX - startX, startHeight + event.clientY - startY);
+      event.preventDefault();
+    });
+
+    function endResize(event) {
+      if (!resizing) return;
+      resizing = false;
+      try { handle.releasePointerCapture?.(event.pointerId); } catch (_) {}
+      saveSize();
+    }
+
+    handle.addEventListener("pointerup", endResize);
+    handle.addEventListener("pointercancel", endResize);
+    window.addEventListener("resize", () => {
+      const rect = panel.getBoundingClientRect();
+      applySize(rect.width, rect.height);
+    });
+    restoreSize();
+  }
 
   function enablePanelDrag(host, handle) {
     const POSITION_KEY = "doubaoMediaPanelPosition_v3";
