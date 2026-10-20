@@ -102,11 +102,14 @@
         #tabs{display:flex;flex:0 0 auto;padding:7px 10px 0;background:#fff;border-bottom:1px solid #e4e4e7}.tab{flex:1;height:32px;border:0;border-bottom:2px solid transparent;background:#fff;color:#71717a;font-size:11px}.tab.active{border-bottom-color:#0057ff;color:#0057ff;font-weight:700}
         #body{min-height:0;flex:1 1 auto;overflow:auto;padding:10px;background:#f7f8fa}#panel.collapsed{height:auto;max-height:none}#panel.collapsed #tabs,#panel.collapsed #body,#panel.collapsed footer{display:none}
         .empty{padding:28px 10px;text-align:center;color:#71717a;font-size:11px;line-height:1.6}
-        .item{display:flex;align-items:center;gap:9px;margin-bottom:7px;padding:7px;border:1px solid #e4e4e7;border-radius:10px;background:#fff}
+        .item{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:7px;border:1px solid #e4e4e7;border-radius:10px;background:#fff}
+        .item.selected{border-color:#7aa7ff;background:#f7faff;box-shadow:0 0 0 2px rgba(37,99,235,.08)}
+        .select-wrap{display:grid;place-items:center;flex:0 0 18px;width:18px}
+        .select-wrap input{width:15px;height:15px;margin:0;accent-color:#2563eb;cursor:pointer}
         .thumb{width:54px;height:54px;flex:0 0 54px;border-radius:8px;object-fit:cover;background:#e4e4e7}.info{min-width:0;flex:1}
         .info strong{display:block;font-size:11px}.info span{display:block;margin-top:4px;overflow:hidden;text-overflow:ellipsis;
           white-space:nowrap;color:#a1a1aa;font-size:9px}.download{height:29px;padding:0 9px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:10px}
-        footer{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-top:1px solid #e4e4e7;background:#fff}
+        footer{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:7px;padding:9px 11px;border-top:1px solid #e4e4e7;background:#fff;flex-wrap:wrap}
         footer button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:31px;padding:0 12px;border:0;border-radius:9px;font-size:11px;font-weight:600}
         footer button svg{width:14px;height:14px;flex:0 0 auto}
         #support-author{background:#f4f4f5;color:#3f3f46}
@@ -115,6 +118,8 @@
         #download-all{background:#2563eb;color:#fff}
         #download-all svg{stroke:currentColor;fill:none}
         #download-all:disabled{opacity:.45;cursor:not-allowed}
+        #download-selected{background:#0f766e;color:#fff}
+        #download-selected:disabled{opacity:.45;cursor:not-allowed}
         #settings{background:#eff6ff;color:#1d4ed8}
         #settings:hover{background:#dbeafe}
         #settings svg{stroke:currentColor;fill:none}
@@ -127,6 +132,8 @@
         .settings-input-row input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
         .settings-check{display:flex;align-items:center;gap:6px;margin-top:8px;color:#52525b;font-size:10px}
         .settings-check input{margin:0}
+        .settings-select{width:100%;height:29px;margin-top:5px;padding:0 7px;border:1px solid #d4d4d8;border-radius:7px;color:#27272a;font-size:10px;outline:none;background:#fff}
+        .settings-select:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
         .settings-hint{margin:7px 0 0;color:#71717a;font-size:9px;line-height:1.45}
         .settings-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
         .settings-actions button{height:27px;padding:0 9px;border:0;border-radius:7px;font-size:10px}
@@ -147,14 +154,23 @@
           <div class="settings-title">下载设置</div>
           <label class="settings-label" for="settings-subdir">保存子目录</label>
           <div class="settings-input-row"><input id="settings-subdir" type="text" placeholder="Doubao" autocomplete="off" spellcheck="false"></div>
+          <label class="settings-label" for="settings-quality">下载画质</label>
+          <select id="settings-quality" class="settings-select">
+            <option value="high">高清原图（无水印）</option>
+            <option value="balanced">标准高清（无水印，较小）</option>
+            <option value="compact">节省空间（无水印，压缩）</option>
+          </select>
           <label class="settings-check"><input id="settings-ask-location" type="checkbox"><span>每次下载前询问保存位置</span></label>
-          <div id="settings-hint" class="settings-hint">默认保存到 Chrome 下载目录下的子目录。</div>
+          <div id="settings-hint" class="settings-hint">基础目录由浏览器的下载目录决定；这里设置子目录和画质。</div>
           <div class="settings-actions"><button id="settings-cancel" type="button">取消</button><button id="settings-save" type="button">保存设置</button></div>
         </section>
         <footer>
           <button id="support-author" type="button" title="支持作者十一木">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 5.6a5.1 5.1 0 0 0-7.2 0L12 7.2l-1.6-1.6a5.1 5.1 0 0 0-7.2 7.2l1.6 1.6L12 21.2l7.2-7.2 1.6-1.6a5.1 5.1 0 0 0 0-7.2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>支持作者</span>
+          </button>
+          <button id="download-selected" type="button" disabled>
+            <span>下载选中 (0)</span>
           </button>
           <button id="download-all" type="button" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -173,13 +189,16 @@
     const settingsButton = shadow.getElementById("settings");
     const settingsPanel = shadow.getElementById("settings-panel");
     const settingsSubdir = shadow.getElementById("settings-subdir");
+    const settingsQuality = shadow.getElementById("settings-quality");
     const settingsAskLocation = shadow.getElementById("settings-ask-location");
     const settingsHint = shadow.getElementById("settings-hint");
     const settingsCancel = shadow.getElementById("settings-cancel");
     const settingsSave = shadow.getElementById("settings-save");
     const downloadAll = shadow.getElementById("download-all");
+    const downloadSelected = shadow.getElementById("download-selected");
     enablePanelResize(panel, shadow.getElementById("resize-handle"));
     const objectUrls = new Set();
+    const selectedKeys = new Set();
     let activeType = "image";
 
     const drag = enablePanelDrag(host, header);
@@ -207,8 +226,8 @@
 
     function updateSettingsHint() {
       settingsHint.textContent = settingsAskLocation.checked
-        ? "开启后单项或批量下载会由 Chrome 询问保存位置。"
-        : "保存到 Chrome 下载目录下的相对子目录。";
+        ? "开启后单项或批量下载会由 Chrome 逐项询问保存位置。"
+        : "保存到浏览器默认下载目录下的相对子目录。";
     }
 
     async function loadDownloadSettings() {
@@ -218,6 +237,7 @@
         return;
       }
       settingsSubdir.value = response.downloadSubdir || "";
+      settingsQuality.value = response.downloadQuality || "high";
       settingsAskLocation.checked = response.downloadAskLocation === true;
       updateSettingsHint();
     }
@@ -239,6 +259,7 @@
       const response = await sendRuntimeMessage({
         type: "SET_DOWNLOAD_SETTINGS",
         downloadSubdir: settingsSubdir.value,
+        downloadQuality: settingsQuality.value,
         downloadAskLocation: settingsAskLocation.checked
       });
       settingsSave.disabled = false;
@@ -247,6 +268,7 @@
         return;
       }
       settingsSubdir.value = response.downloadSubdir || "";
+      settingsQuality.value = response.downloadQuality || "high";
       settingsAskLocation.checked = response.downloadAskLocation === true;
       updateSettingsHint();
       settingsPanel.hidden = true;
@@ -257,20 +279,41 @@
       window.open(SUPPORT_URL, "_blank", "noopener,noreferrer");
     });
 
-    downloadAll.addEventListener("click", async () => {
-      const items = activeType === "image"
-        ? sessionImageRecords()
-        : Array.from(sessionVideos.values());
+    function activeItems() {
+      return activeType === "image" ? sessionImageRecords() : Array.from(sessionVideos.values());
+    }
+
+    function selectionKey(type, record) {
+      return `${type}:${type === "image" ? record.image_id : record.video_record_id}`;
+    }
+
+    function updateSelectionUi(items = activeItems()) {
+      const selectedCount = items.reduce((count, record) => count + (selectedKeys.has(selectionKey(activeType, record)) ? 1 : 0), 0);
+      const label = downloadSelected.querySelector("span");
+      if (label) label.textContent = `下载选中 (${selectedCount})`;
+      downloadSelected.disabled = selectedCount === 0;
+      return selectedCount;
+    }
+
+    async function submitDownloads(items, labelButton, completeLabel) {
       if (!items.length) return;
       downloadAll.disabled = true;
-      const downloadLabel = downloadAll.querySelector("span");
+      downloadSelected.disabled = true;
+      const downloadLabel = labelButton.querySelector("span");
       if (downloadLabel) downloadLabel.textContent = "提交中…";
       const response = await sendRuntimeMessage(activeType === "image"
         ? { type: "BATCH_DOWNLOAD", images: items }
         : { type: "BATCH_VIDEO_DOWNLOAD", videos: items });
       downloadAll.disabled = false;
-      if (downloadLabel) downloadLabel.textContent = "全部下载";
+      updateSelectionUi();
+      if (downloadLabel) downloadLabel.textContent = completeLabel;
       setStatus(response?.ok === false ? "error" : "captured", response?.ok === false ? response.error : `已提交 ${items.length} 项下载`);
+    }
+
+    downloadAll.addEventListener("click", () => submitDownloads(activeItems(), downloadAll, "全部下载"));
+    downloadSelected.addEventListener("click", () => {
+      const items = activeItems().filter((record) => selectedKeys.has(selectionKey(activeType, record)));
+      submitDownloads(items, downloadSelected, `下载选中 (${items.length})`);
     });
 
     function formatMeta(record, type) {
@@ -283,6 +326,21 @@
     function appendItem(type, record) {
       const item = document.createElement("div");
       item.className = "item";
+      const key = selectionKey(type, record);
+      item.classList.toggle("selected", selectedKeys.has(key));
+      const selectWrap = document.createElement("label");
+      selectWrap.className = "select-wrap";
+      selectWrap.title = "选择下载";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selectedKeys.has(key);
+      checkbox.setAttribute("aria-label", `选择${type === "image" ? "图片" : "视频"}`);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) selectedKeys.add(key); else selectedKeys.delete(key);
+        item.classList.toggle("selected", checkbox.checked);
+        updateSelectionUi();
+      });
+      selectWrap.appendChild(checkbox);
       const image = document.createElement("img");
       image.className = "thumb";
       image.alt = type === "image" ? "图片缩略图" : "视频封面";
@@ -326,7 +384,7 @@
         download.textContent = "下载";
         setStatus(response?.ok === false ? "error" : "captured", response?.ok === false ? response.error : "下载任务已提交");
       });
-      item.append(image, info, download);
+      item.append(selectWrap, image, info, download);
       list.appendChild(item);
     }
 
@@ -340,6 +398,10 @@
       shadow.getElementById("video-count").textContent = String(videos.length);
       shadow.querySelectorAll(".tab").forEach((button) => button.classList.toggle("active", button.dataset.type === activeType));
       const items = (activeType === "image" ? images : videos).sort((a, b) => (b.captured_at || 0) - (a.captured_at || 0));
+      const visibleKeys = new Set(items.map((record) => selectionKey(activeType, record)));
+      for (const key of selectedKeys) {
+        if (key.startsWith(`${activeType}:`) && !visibleKeys.has(key)) selectedKeys.delete(key);
+      }
       downloadAll.disabled = items.length === 0;
       const downloadLabel = downloadAll.querySelector("span");
       if (downloadLabel) downloadLabel.textContent = "全部下载";
@@ -349,6 +411,7 @@
         empty.textContent = activeType === "image" ? "当前会话暂未识别到图片" : "当前会话暂未识别到视频";
         list.appendChild(empty);
       } else items.forEach((record) => appendItem(activeType, record));
+      updateSelectionUi(items);
     }
 
     const append = () => {
@@ -359,7 +422,7 @@
     return {
       host,
       refresh: render,
-      reset: () => { activeType = "image"; render(); },
+      reset: () => { activeType = "image"; selectedKeys.clear(); render(); },
       showVideo: (record) => {
         if (!record?.video_record_id) return;
         sessionVideos.set(record.video_record_id, record);
@@ -1237,3 +1300,4 @@
   if (document.documentElement) start();
   else document.addEventListener("DOMContentLoaded", start, { once: true });
 })();
+
