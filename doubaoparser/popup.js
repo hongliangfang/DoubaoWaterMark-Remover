@@ -21,6 +21,8 @@ let activeConversationTitle = null;
 let noticeTimer = null;
 let reloadTimer = null;
 let renderVersion = 0;
+// Shift 点击需要一个锚点；Ctrl/Meta 点击沿用原生复选框的单项切换行为。
+let lastSelectedKey = null;
 
 function sendMessage(message) {
   return new Promise((resolve) => chrome.runtime.sendMessage(message, (response) => {
@@ -389,6 +391,32 @@ function createBaseItem(item, alt) {
   checkbox.className = "check";
   checkbox.checked = selected.has(item.key);
   checkbox.setAttribute("aria-label", `选择${item.type === "image" ? "图片" : "视频"}`);
+  checkbox.addEventListener("click", (event) => {
+    // Shift 点击：按当前媒体列表的顺序选择锚点和目标之间的连续项。
+    // preventDefault() 会阻止浏览器再次切换目标复选框，下面统一写入最终状态。
+    if (event.shiftKey && lastSelectedKey) {
+      const visible = visibleMedia();
+      const anchorIndex = visible.findIndex((entry) => entry.key === lastSelectedKey);
+      const targetIndex = visible.findIndex((entry) => entry.key === item.key);
+      if (anchorIndex >= 0 && targetIndex >= 0) {
+        event.preventDefault();
+        const shouldSelect = !selected.has(item.key);
+        const start = Math.min(anchorIndex, targetIndex);
+        const end = Math.max(anchorIndex, targetIndex);
+        for (let index = start; index <= end; index += 1) {
+          if (shouldSelect) selected.add(visible[index].key);
+          else selected.delete(visible[index].key);
+        }
+        lastSelectedKey = item.key;
+        updateSelection();
+        return;
+      }
+    }
+
+    // Ctrl（Windows/Linux）或 Meta（macOS）点击保持其它项目的状态，
+    // 由原生 checkbox 的 change 事件完成当前项目的切换。
+    lastSelectedKey = item.key;
+  });
   checkbox.addEventListener("change", () => {
     if (checkbox.checked) selected.add(item.key); else selected.delete(item.key);
     updateSelection();
@@ -566,21 +594,31 @@ async function copyWechatId() {
   }
 }
 
-elements.conversationFilter.addEventListener("change", () => { selected.clear(); render(); });
+elements.conversationFilter.addEventListener("change", () => {
+  selected.clear();
+  lastSelectedKey = null;
+  render();
+});
 elements.downloadAskLocation.addEventListener("change", updateDownloadSettingsHint);
 elements.saveDownloadSettings.addEventListener("click", saveDownloadSettings);
 elements.mediaTabs.addEventListener("click", (event) => {
   const button = event.target.closest(".media-tab");
   if (!button) return;
   selected.clear();
+  lastSelectedKey = null;
   setMediaKind(button.dataset.kind);
   render();
 });
 
 elements.selectAll.addEventListener("change", () => {
   const visible = visibleMedia();
-  if (elements.selectAll.checked) visible.forEach((item) => selected.add(item.key));
-  else visible.forEach((item) => selected.delete(item.key));
+  if (elements.selectAll.checked) {
+    visible.forEach((item) => selected.add(item.key));
+    lastSelectedKey = visible.length ? visible[visible.length - 1].key : null;
+  } else {
+    visible.forEach((item) => selected.delete(item.key));
+    lastSelectedKey = null;
+  }
   updateSelection();
 });
 
