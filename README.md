@@ -1,7 +1,7 @@
 # 豆包无水印图片和视频一键下载
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.8.1-blue.svg)](./CHANGELOG.md)
 [![GitHub stars](https://img.shields.io/github/stars/XiaoYu43002/DoubaoWaterMark-Remover)](https://github.com/XiaoYu43002/DoubaoWaterMark-Remover/stargazers)
 
 在豆包对话页一键获取无水印原图与高清无水印视频的工具/浏览器插件。支持一键下载
@@ -124,6 +124,7 @@ Popup 中可按会话查看图片 / 视频，支持全选与批量下载：
 - 📦 **本会话汇总**：面板计数实时更新（如图片 5 / 视频 1）
 - 🗂️ **Popup 网格**：缩略图 + 分辨率 / 格式 / 时间
 - ✅ **批量下载**：勾选后一键提交下载队列
+- 🖱️ **快速选择**：页内面板和 Popup 支持 Shift 连选、Ctrl/Command 单项切换；页内面板可用「全选当前」后再取消个别项目
 - 🎥 **视频筛选**：可切到「视频」Tab 只看无水印 MP4
 
 ### 5. 会话切换 · 全部资源管理
@@ -182,6 +183,7 @@ Popup 可按「会话标题 - Chat ID」切换，或选择 **全部会话** 汇�
 - Popup 的「下载设置」可以填写保存子目录，例如 `Doubao/我的项目`。Chrome/Edge 的下载 API 只接受相对于浏览器默认“下载”目录的路径，因此这个字段可设置多级子目录，图片和视频共用该设置。
 - 勾选「每次下载前询问保存位置」后，Chrome/Edge 会对每个下载任务弹出保存位置选择器；批量任务会串行询问，所以一次“全部下载”看到多个逐项选项是浏览器的预期行为。关闭它即可自动保存到设置的子目录。
 - 页内蓝色媒体面板右上角齿轮按钮还提供「选择文件夹」。在支持 File System Access 的 Chrome/Edge 中，你可以一次选择基础文件夹，再设置子目录；页内面板会直接把单项或批量任务写入该文件夹，刷新页面后会尝试恢复本地保存的文件夹权限。
+- 选择部分媒体后，页内面板右下角的「选中另存为」可以只为这一次下载另选一个文件夹；它会优先从设置里的基础文件夹打开选择器，并沿用子目录和画质设置，但不会改掉默认文件夹。
 - 如果浏览器不支持文件夹权限、权限被撤回，或跨域媒体不能由页面直接读取，页内面板会自动回退到浏览器下载队列。Popup 仍使用浏览器下载目录 / 相对子目录模式。
 - 面板右下角的斜线拖拽柄可以调整宽度和高度，尺寸会保存在当前豆包站点的本地存储中，刷新页面后自动恢复。
 - 图片下载优先使用接口返回的原图字段 `image_ori_raw`；视频下载会重新解析 `fallback_api` 并请求最高质量的无水印地址。
