@@ -22,6 +22,11 @@ const CAPTURE_MODE_ALL = "all_opened";
 const CAPTURE_MODE_CURRENT = "current_only";
 const DEFAULT_DOWNLOAD_SUBDIR = "Doubao";
 const DEFAULT_DOWNLOAD_ASK_LOCATION = false;
+const DEFAULT_DOWNLOAD_QUALITY = "high";
+
+function normalizeDownloadQuality(value) {
+  return value === "balanced" || value === "compact" ? value : DEFAULT_DOWNLOAD_QUALITY;
+}
 
 async function getCaptureMode() {
   const stored = await storageGet({ captureMode: CAPTURE_MODE_CURRENT });
@@ -66,11 +71,13 @@ function joinDownloadPath(prefix, filename) {
 async function getDownloadSettings() {
   const stored = await storageGet({
     downloadSubdir: DEFAULT_DOWNLOAD_SUBDIR,
-    downloadAskLocation: DEFAULT_DOWNLOAD_ASK_LOCATION
+    downloadAskLocation: DEFAULT_DOWNLOAD_ASK_LOCATION,
+    downloadQuality: DEFAULT_DOWNLOAD_QUALITY
   });
   return {
     downloadSubdir: normalizeDownloadSubdir(stored.downloadSubdir),
-    downloadAskLocation: stored.downloadAskLocation === true
+    downloadAskLocation: stored.downloadAskLocation === true,
+    downloadQuality: normalizeDownloadQuality(stored.downloadQuality)
   };
 }
 
@@ -458,6 +465,56 @@ function notifyRuntime(message) {
   }
 }
 
+async function blobToDataUrl(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+  }
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
+}
+
+async function prepareImageDownloadSource(sourceUrl, quality) {
+  const fallback = {
+    url: sourceUrl,
+    extension: extensionFromUrl(sourceUrl) || "jpg"
+  };
+  if (quality === DEFAULT_DOWNLOAD_QUALITY) return fallback;
+
+  // 先下载无水印原图，再在扩展后台缩放/压缩。这样低画质档也不会回退到
+  // 可能带展示水印的 image_ori / preview 地址。
+  try {
+    const response = await fetch(sourceUrl, { credentials: "omit", cache: "force-cache" });
+    if (!response.ok) throw new Error(`原图请求失败：HTTP ${response.status}`);
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) throw new Error("原图格式无效");
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const maxLongSide = quality === "compact" ? 1600 : 2560;
+      const scale = Math.min(1, maxLongSide / Math.max(bitmap.width, bitmap.height));
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = new OffscreenCanvas(width, height);
+      const context = canvas.getContext("2d", { alpha: false });
+      context.drawImage(bitmap, 0, 0, width, height);
+      const output = await canvas.convertToBlob({
+        type: "image/webp",
+        quality: quality === "compact" ? 0.72 : 0.88
+      });
+      // 避免把异常的大图编码成过大的 data URL；这种情况直接保留原图。
+      if (!output || output.size <= 45 * 1024 * 1024) {
+        return { url: await blobToDataUrl(output), extension: "webp" };
+      }
+    } finally {
+      bitmap.close();
+    }
+  } catch (_) {
+    // 压缩失败时继续下载已验证的无水印原图。
+  }
+  return fallback;
+}
+
 async function prepareDownload(input, index = 0) {
   const record = normalizeRecord(input);
   if (!record) throw new Error("下载地址无效");
@@ -470,15 +527,15 @@ async function prepareDownload(input, index = 0) {
       cached = null;
     }
   }
-  const extension = cached?.extension || extensionFromUrl(sourceUrl) || "jpg";
   const suffix = index ? `_${String(index).padStart(2, "0")}` : "";
   const settings = await getDownloadSettings();
+  const source = await prepareImageDownloadSource(sourceUrl, settings.downloadQuality);
   return {
     imageId: record.image_id,
-    url: sourceUrl,
+    url: source.url,
     filename: joinDownloadPath(
       settings.downloadSubdir,
-      `doubao_original_images/doubao_${timestamp()}${suffix}.${extension}`
+      `doubao_original_images/doubao_${timestamp()}${suffix}.${source.extension || cached?.extension || "jpg"}`
     ),
     saveAs: settings.downloadAskLocation,
     attempt: 0,
@@ -641,8 +698,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       const downloadSubdir = normalizeDownloadSubdir(message.downloadSubdir);
       const downloadAskLocation = message.downloadAskLocation === true;
-      await storageSet({ downloadSubdir, downloadAskLocation });
-      sendResponse({ ok: true, downloadSubdir, downloadAskLocation });
+      const downloadQuality = normalizeDownloadQuality(message.downloadQuality);
+      await storageSet({ downloadSubdir, downloadAskLocation, downloadQuality });
+      sendResponse({ ok: true, downloadSubdir, downloadAskLocation, downloadQuality });
     })().catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
