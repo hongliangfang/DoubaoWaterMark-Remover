@@ -43,8 +43,8 @@ async function loadDownloadSettings() {
 
 function updateDownloadSettingsHint() {
   elements.downloadSettingsHint.textContent = elements.downloadAskLocation.checked
-    ? "已开启位置询问；Chrome/Edge 会对每个文件逐项弹出保存位置。"
-    : "保存到浏览器默认下载目录下的相对子目录；画质档均以无水印原图为来源。";
+    ? "已开启位置询问；Chrome/Edge 会对每个文件逐项弹出保存位置。页内面板齿轮可选择一次基础文件夹。"
+    : "保存到浏览器默认下载目录下的相对子目录；页内面板齿轮可选择一次基础文件夹，画质档均以无水印原图为来源。";
 }
 
 async function saveDownloadSettings() {
