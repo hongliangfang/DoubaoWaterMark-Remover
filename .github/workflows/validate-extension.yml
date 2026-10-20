@@ -1,0 +1,90 @@
+name: Validate Chrome extension
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate manifest and referenced files
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const root = 'doubaoparser';
+          const manifestPath = path.join(root, 'manifest.json');
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+          if (manifest.manifest_version !== 3) {
+            throw new Error(`Expected Manifest V3, got ${manifest.manifest_version}`);
+          }
+
+          const references = new Set();
+          const add = (value) => {
+            if (typeof value === 'string') references.add(value);
+          };
+
+          add(manifest.background?.service_worker);
+          add(manifest.action?.default_popup);
+          for (const icon of Object.values(manifest.icons || {})) add(icon);
+          for (const icon of Object.values(manifest.action?.default_icon || {})) add(icon);
+          for (const entry of manifest.content_scripts || []) {
+            for (const file of entry.js || []) add(file);
+            for (const file of entry.css || []) add(file);
+          }
+
+          const missing = [...references].filter((file) => {
+            const resolved = path.join(root, file);
+            return !fs.existsSync(resolved);
+          });
+          if (missing.length) {
+            throw new Error(`Manifest references missing files: ${missing.join(', ')}`);
+          }
+
+          console.log(`Manifest V3 is valid; checked ${references.size} referenced files.`);
+          NODE
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          find doubaoparser -type f -name '*.js' -print0 \
+            | xargs -0 -r -n1 node --check
+
+      - name: Package extension
+        shell: bash
+        run: |
+          mkdir -p dist
+          archive="dist/doubao-watermark-remover-${GITHUB_SHA::7}.zip"
+          (cd doubaoparser && zip -qr "../${archive}" . \
+            -x '*.orig' -x '*.DS_Store' -x '__MACOSX/*')
+          echo "Created ${archive}"
+
+      - name: Upload unpacked extension package
+        uses: actions/upload-artifact@v4
+        with:
+          name: doubao-watermark-remover-${{ github.sha }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
