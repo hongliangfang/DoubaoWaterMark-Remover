@@ -1,7 +1,7 @@
 # 豆包无水印图片和视频一键下载
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-2.7.1-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.7.2-blue.svg)](./CHANGELOG.md)
 [![GitHub stars](https://img.shields.io/github/stars/XiaoYu43002/DoubaoWaterMark-Remover)](https://github.com/XiaoYu43002/DoubaoWaterMark-Remover/stargazers)
 
 在豆包对话页一键获取无水印原图与高清无水印视频的工具/浏览器插件。支持一键下载
@@ -173,6 +173,13 @@ Popup 可按「会话标题 - Chat ID」切换，或选择 **全部会话** 汇�
 1. 在多个会话中捕获媒体后打开可进行历史图片和视频管理 
 2. 按会话与类型筛选，勾选后批量下载  
 3. 需要时调整缓存上限并「立即整理」  
+
+### 下载位置与手动控制
+
+- 媒体会自动捕获并进入页内面板 / Popup，但不会自动下载；是否下载、下载哪些条目由你逐项点击或勾选后操作。
+- Popup 的「下载设置」可以填写保存子目录，例如 `Doubao/我的项目`。Chrome 会将它放在系统默认「下载」目录下，图片和视频共用该设置。
+- 勾选「每次下载前询问保存位置」后，Chrome 会在单项或批量下载时弹出保存位置选择器，适合需要指定任意本地文件夹的情况。批量下载会串行询问，避免同时弹出多个选择器。
+- 图片下载优先使用接口返回的原图字段 `image_ori_raw`；视频下载会重新解析 `fallback_api` 并请求最高质量的无水印地址。
 
 ---
 
