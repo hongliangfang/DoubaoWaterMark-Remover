@@ -229,6 +229,10 @@
         .icon:hover{background:rgba(255,255,255,.28)}.icon svg{width:14px;height:14px;transition:transform .2s}.collapsed #collapse svg{transform:rotate(180deg)}
         #tabs{display:flex;flex:0 0 auto;padding:7px 10px 0;background:#fff;border-bottom:1px solid #e4e4e7}.tab{flex:1;height:32px;border:0;border-bottom:2px solid transparent;background:#fff;color:#71717a;font-size:11px}.tab.active{border-bottom-color:#0057ff;color:#0057ff;font-weight:700}
         #body{min-height:0;flex:1 1 auto;overflow:auto;padding:10px;background:#f7f8fa}#panel.collapsed{height:auto;max-height:none}#panel.collapsed #tabs,#panel.collapsed #body,#panel.collapsed footer{display:none}
+        #selection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:6px 8px;border:1px solid #dbe4f5;border-radius:8px;background:#eff6ff;color:#334155;font-size:10px}
+        #selection-toolbar label{display:inline-flex;align-items:center;gap:6px;min-width:0;cursor:pointer;user-select:none}
+        #selection-toolbar input{width:14px;height:14px;margin:0;accent-color:#2563eb;cursor:pointer}
+        #selection-toolbar input:disabled{cursor:not-allowed}.selection-summary{color:#64748b;white-space:nowrap}
         .empty{padding:28px 10px;text-align:center;color:#71717a;font-size:11px;line-height:1.6}
         .item{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:7px;border:1px solid #e4e4e7;border-radius:10px;background:#fff}
         .item.selected{border-color:#7aa7ff;background:#f7faff;box-shadow:0 0 0 2px rgba(37,99,235,.08)}
@@ -248,6 +252,8 @@
         #download-all:disabled{opacity:.45;cursor:not-allowed}
         #download-selected{background:#0f766e;color:#fff}
         #download-selected:disabled{opacity:.45;cursor:not-allowed}
+        #download-selected-folder{background:#7c3aed;color:#fff}
+        #download-selected-folder:disabled{opacity:.45;cursor:not-allowed}
         #settings{background:#eff6ff;color:#1d4ed8}
         #settings:hover{background:#dbeafe}
         #settings svg{stroke:currentColor;fill:none}
@@ -280,7 +286,7 @@
       <section id="panel">
         <header><button id="collapse" class="icon" title="收起面板" aria-label="收起或展开面板"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="title"><strong><span>加载成功</span><i class="state-dot"></i></strong></div><button id="settings" class="icon" title="下载设置" aria-label="下载设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm0-5.2 1.1 2.1 2.4-.5 1.8-1.4 1.8 1.8-1.4 1.8.5 2.4 2.1 1.1v2.6l-2.1 1.1-.5 2.4 1.4 1.8-1.8 1.8-1.8-1.4-1.1 2.1h-2.6l-1.1-2.1-2.4-.5-1.8 1.4-1.8-1.8 1.4-1.8-.5-2.4-2.1-1.1v-2.6l-2.1-1.1-1.4-1.8 1.8-1.8 1.8 1.4 2.4-.5L9.4 3H12Z" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="close" class="icon" title="关闭">×</button></header>
         <nav id="tabs"><button class="tab active" data-type="image">图片 <b id="image-count">0</b></button><button class="tab" data-type="video">视频 <b id="video-count">0</b></button></nav>
-        <div id="body"><div id="list"><div class="empty">当前会话暂未识别到图片</div></div></div>
+        <div id="body"><div id="selection-toolbar"><label><input id="select-all-current" type="checkbox"><span>全选当前</span></label><span id="selection-summary" class="selection-summary">已选 0 / 0</span></div><div id="list"><div class="empty">当前会话暂未识别到图片</div></div></div>
         <section id="settings-panel" hidden aria-label="下载设置">
           <div class="settings-title">下载设置</div>
           <label class="settings-label">基础文件夹</label>
@@ -305,6 +311,9 @@
           <button id="download-selected" type="button" disabled>
             <span>下载选中 (0)</span>
           </button>
+          <button id="download-selected-folder" type="button" disabled title="只影响本次选中的媒体，不改变设置里的默认文件夹">
+            <span>选中另存为</span>
+          </button>
           <button id="download-all" type="button" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>全部下载</span>
@@ -318,6 +327,8 @@
     const panel = shadow.getElementById("panel");
     const header = shadow.querySelector("header");
     const list = shadow.getElementById("list");
+    const selectAllCurrent = shadow.getElementById("select-all-current");
+    const selectionSummary = shadow.getElementById("selection-summary");
     const supportAuthor = shadow.getElementById("support-author");
     const settingsButton = shadow.getElementById("settings");
     const settingsPanel = shadow.getElementById("settings-panel");
@@ -331,12 +342,14 @@
     const settingsSave = shadow.getElementById("settings-save");
     const downloadAll = shadow.getElementById("download-all");
     const downloadSelected = shadow.getElementById("download-selected");
+    const downloadSelectedFolder = shadow.getElementById("download-selected-folder");
     enablePanelResize(panel, shadow.getElementById("resize-handle"));
     const objectUrls = new Set();
     const selectedKeys = new Set();
     let downloadDirectoryHandle = null;
     let downloadDirectoryName = "";
     let activeType = "image";
+    let lastSelectedKey = null;
 
     const drag = enablePanelDrag(host, header);
 
@@ -366,6 +379,7 @@
 
     shadow.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => {
       activeType = button.dataset.type;
+      lastSelectedKey = null;
       render();
     }));
 
@@ -462,17 +476,45 @@
       return activeType === "image" ? sessionImageRecords() : Array.from(sessionVideos.values());
     }
 
+    function orderedActiveItems(items = activeItems()) {
+      return [...items].sort((a, b) => (b.captured_at || 0) - (a.captured_at || 0));
+    }
+
     function selectionKey(type, record) {
       return `${type}:${type === "image" ? record.image_id : record.video_record_id}`;
     }
 
-    function updateSelectionUi(items = activeItems()) {
+    function updateSelectionUi(items = orderedActiveItems()) {
       const selectedCount = items.reduce((count, record) => count + (selectedKeys.has(selectionKey(activeType, record)) ? 1 : 0), 0);
       const label = downloadSelected.querySelector("span");
       if (label) label.textContent = `下载选中 (${selectedCount})`;
       downloadSelected.disabled = selectedCount === 0;
+      downloadSelectedFolder.disabled = selectedCount === 0;
+      selectAllCurrent.disabled = items.length === 0;
+      selectAllCurrent.checked = items.length > 0 && selectedCount === items.length;
+      selectAllCurrent.indeterminate = selectedCount > 0 && selectedCount < items.length;
+      selectionSummary.textContent = `已选 ${selectedCount} / ${items.length}`;
+      list.querySelectorAll(".item[data-selection-key]").forEach((item) => {
+        const selected = selectedKeys.has(item.dataset.selectionKey);
+        item.classList.toggle("selected", selected);
+        const checkbox = item.querySelector(".select-wrap input");
+        if (checkbox) checkbox.checked = selected;
+      });
       return selectedCount;
     }
+
+    selectAllCurrent.addEventListener("change", () => {
+      const items = orderedActiveItems();
+      for (const record of items) {
+        const key = selectionKey(activeType, record);
+        if (selectAllCurrent.checked) selectedKeys.add(key);
+        else selectedKeys.delete(key);
+      }
+      lastSelectedKey = selectAllCurrent.checked && items.length
+        ? selectionKey(activeType, items[items.length - 1])
+        : null;
+      updateSelectionUi(items);
+    });
 
     async function submitSingleDownload(type, record) {
       if (downloadDirectoryHandle) {
@@ -494,6 +536,7 @@
       if (!items.length) return;
       downloadAll.disabled = true;
       downloadSelected.disabled = true;
+      downloadSelectedFolder.disabled = true;
       const downloadLabel = labelButton.querySelector("span");
       if (downloadLabel) downloadLabel.textContent = "提交中…";
       if (downloadDirectoryHandle) {
@@ -529,11 +572,52 @@
       setStatus(response?.ok === false ? "error" : "captured", response?.ok === false ? response.error : `已提交 ${items.length} 项下载`);
     }
 
+    async function submitSelectedToFolder() {
+      const items = orderedActiveItems().filter((record) => selectedKeys.has(selectionKey(activeType, record)));
+      if (!items.length) return;
+      if (typeof window.showDirectoryPicker !== "function") {
+        setStatus("error", "当前浏览器不支持一次选择文件夹，请使用设置里的基础文件夹或浏览器下载");
+        return;
+      }
+      const label = downloadSelectedFolder.querySelector("span");
+      downloadAll.disabled = true;
+      downloadSelected.disabled = true;
+      downloadSelectedFolder.disabled = true;
+      if (label) label.textContent = "选择文件夹…";
+      try {
+        const pickerOptions = { mode: "readwrite" };
+        if (downloadDirectoryHandle) pickerOptions.startIn = downloadDirectoryHandle;
+        const handle = await window.showDirectoryPicker(pickerOptions);
+        const writable = await getWritableDirectory(handle);
+        if (!writable) throw new Error("没有获得文件夹写入权限");
+        if (label) label.textContent = "保存中…";
+        const settings = await sendRuntimeMessage({ type: "GET_DOWNLOAD_SETTINGS" });
+        let success = 0;
+        const failed = [];
+        for (let index = 0; index < items.length; index += 1) {
+          try {
+            await writeMediaWithDirectory(handle, activeType, items[index], settings, index + 1);
+            success += 1;
+          } catch (error) {
+            failed.push(error);
+          }
+        }
+        setStatus(failed.length ? "error" : "captured", `已另存 ${success} 项${failed.length ? `，${failed.length} 项保存失败` : ""}`);
+      } catch (error) {
+        if (error?.name !== "AbortError") setStatus("error", `另存失败：${error.message || "未知错误"}`);
+      } finally {
+        if (label) label.textContent = "选中另存为";
+        updateSelectionUi();
+        downloadAll.disabled = activeItems().length === 0;
+      }
+    }
+
     downloadAll.addEventListener("click", () => submitDownloads(activeItems(), downloadAll, "全部下载"));
     downloadSelected.addEventListener("click", () => {
       const items = activeItems().filter((record) => selectedKeys.has(selectionKey(activeType, record)));
       submitDownloads(items, downloadSelected, `下载选中 (${items.length})`);
     });
+    downloadSelectedFolder.addEventListener("click", submitSelectedToFolder);
 
     function formatMeta(record, type) {
       const width = record.width || "?";
@@ -546,6 +630,7 @@
       const item = document.createElement("div");
       item.className = "item";
       const key = selectionKey(type, record);
+      item.dataset.selectionKey = key;
       item.classList.toggle("selected", selectedKeys.has(key));
       const selectWrap = document.createElement("label");
       selectWrap.className = "select-wrap";
@@ -554,10 +639,33 @@
       checkbox.type = "checkbox";
       checkbox.checked = selectedKeys.has(key);
       checkbox.setAttribute("aria-label", `选择${type === "image" ? "图片" : "视频"}`);
+      checkbox.addEventListener("click", (event) => {
+        const items = orderedActiveItems();
+        const currentIndex = items.findIndex((recordItem) => selectionKey(type, recordItem) === key);
+        const previousIndex = lastSelectedKey
+          ? items.findIndex((recordItem) => selectionKey(type, recordItem) === lastSelectedKey)
+          : -1;
+        if (event.shiftKey && currentIndex >= 0 && previousIndex >= 0) {
+          event.preventDefault();
+          const nextChecked = !selectedKeys.has(key);
+          const start = Math.min(currentIndex, previousIndex);
+          const end = Math.max(currentIndex, previousIndex);
+          for (let index = start; index <= end; index += 1) {
+            const rangeKey = selectionKey(type, items[index]);
+            if (nextChecked) selectedKeys.add(rangeKey);
+            else selectedKeys.delete(rangeKey);
+          }
+          lastSelectedKey = key;
+          updateSelectionUi(items);
+          return;
+        }
+        // Normal clicks and Ctrl/Command clicks use the native checkbox toggle.
+        // The change handler below applies that one-item toggle to selectedKeys.
+        lastSelectedKey = key;
+      });
       checkbox.addEventListener("change", () => {
         if (checkbox.checked) selectedKeys.add(key); else selectedKeys.delete(key);
-        item.classList.toggle("selected", checkbox.checked);
-        updateSelectionUi();
+        updateSelectionUi(orderedActiveItems());
       });
       selectWrap.appendChild(checkbox);
       const image = document.createElement("img");
@@ -614,7 +722,7 @@
       shadow.getElementById("image-count").textContent = String(images.length);
       shadow.getElementById("video-count").textContent = String(videos.length);
       shadow.querySelectorAll(".tab").forEach((button) => button.classList.toggle("active", button.dataset.type === activeType));
-      const items = (activeType === "image" ? images : videos).sort((a, b) => (b.captured_at || 0) - (a.captured_at || 0));
+      const items = orderedActiveItems(activeType === "image" ? images : videos);
       const visibleKeys = new Set(items.map((record) => selectionKey(activeType, record)));
       for (const key of selectedKeys) {
         if (key.startsWith(`${activeType}:`) && !visibleKeys.has(key)) selectedKeys.delete(key);
@@ -639,7 +747,7 @@
     return {
       host,
       refresh: render,
-      reset: () => { activeType = "image"; selectedKeys.clear(); render(); },
+      reset: () => { activeType = "image"; selectedKeys.clear(); lastSelectedKey = null; render(); },
       showVideo: (record) => {
         if (!record?.video_record_id) return;
         sessionVideos.set(record.video_record_id, record);
