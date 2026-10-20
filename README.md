@@ -230,6 +230,8 @@ DoubaoWaterMark-Remover/
 
 ## 开发与反馈
 
+- 不需要每次修改都下载 ZIP：把仓库克隆到本地固定目录后，后续执行 `git pull --ff-only`，再到 `chrome://extensions/` 点击扩展的「重新加载」即可。扩展源码目录是 `doubaoparser/`。
+- 每次推送到 `main` 或 `feat/**` 分支，GitHub Actions 会自动检查 Manifest V3、清单引用文件和 JavaScript 语法，并生成可下载的 ZIP 构建产物；检查结果见仓库的 **Actions** 页面。
 - 作者：**十一木**  
 - Popup 内可复制微信号反馈  
 
