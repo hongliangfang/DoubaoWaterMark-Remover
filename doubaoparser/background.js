@@ -20,6 +20,8 @@ const downloadJobs = new Map();
 let cleanupPromise = null;
 const CAPTURE_MODE_ALL = "all_opened";
 const CAPTURE_MODE_CURRENT = "current_only";
+const DEFAULT_DOWNLOAD_SUBDIR = "Doubao";
+const DEFAULT_DOWNLOAD_ASK_LOCATION = false;
 
 async function getCaptureMode() {
   const stored = await storageGet({ captureMode: CAPTURE_MODE_CURRENT });
@@ -29,6 +31,47 @@ async function getCaptureMode() {
 async function getExtensionEnabled() {
   const stored = await storageGet({ extensionEnabled: true });
   return stored.extensionEnabled !== false;
+}
+
+function sanitizeDownloadSegment(value) {
+  return String(value || "")
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+    .replace(/\.\.+/g, "_")
+    .replace(/^\.+$/, "_")
+    .trim()
+    .slice(0, 120);
+}
+
+function normalizeDownloadSubdir(value) {
+  const segments = String(value || "")
+    .replace(/\\/g, "/")
+    .split("/")
+    .map(sanitizeDownloadSegment)
+    .filter(Boolean)
+    .slice(0, 8);
+  return segments.join("/");
+}
+
+function joinDownloadPath(prefix, filename) {
+  const cleanFilename = String(filename || "")
+    .replace(/\\/g, "/")
+    .split("/")
+    .map(sanitizeDownloadSegment)
+    .filter(Boolean)
+    .join("/");
+  const cleanPrefix = normalizeDownloadSubdir(prefix);
+  return cleanPrefix ? `${cleanPrefix}/${cleanFilename}` : cleanFilename;
+}
+
+async function getDownloadSettings() {
+  const stored = await storageGet({
+    downloadSubdir: DEFAULT_DOWNLOAD_SUBDIR,
+    downloadAskLocation: DEFAULT_DOWNLOAD_ASK_LOCATION
+  });
+  return {
+    downloadSubdir: normalizeDownloadSubdir(stored.downloadSubdir),
+    downloadAskLocation: stored.downloadAskLocation === true
+  };
 }
 
 async function broadcastExtensionEnabled(enabled) {
@@ -429,10 +472,15 @@ async function prepareDownload(input, index = 0) {
   }
   const extension = cached?.extension || extensionFromUrl(sourceUrl) || "jpg";
   const suffix = index ? `_${String(index).padStart(2, "0")}` : "";
+  const settings = await getDownloadSettings();
   return {
     imageId: record.image_id,
     url: sourceUrl,
-    filename: `doubao_original_images/doubao_${timestamp()}${suffix}.${extension}`,
+    filename: joinDownloadPath(
+      settings.downloadSubdir,
+      `doubao_original_images/doubao_${timestamp()}${suffix}.${extension}`
+    ),
+    saveAs: settings.downloadAskLocation,
     attempt: 0,
     maxAttempts: MAX_DOWNLOAD_ATTEMPTS
   };
@@ -447,7 +495,7 @@ async function startDownloadJob(job) {
       const downloadId = await downloadWithChrome({
         url: job.url,
         filename: job.filename,
-        saveAs: false,
+        saveAs: job.saveAs === true,
         conflictAction: "uniquify"
       });
       downloadJobs.set(downloadId, job);
@@ -582,6 +630,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "GET_DOWNLOAD_SETTINGS") {
+    getDownloadSettings()
+      .then((settings) => sendResponse({ ok: true, ...settings }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "SET_DOWNLOAD_SETTINGS") {
+    (async () => {
+      const downloadSubdir = normalizeDownloadSubdir(message.downloadSubdir);
+      const downloadAskLocation = message.downloadAskLocation === true;
+      await storageSet({ downloadSubdir, downloadAskLocation });
+      sendResponse({ ok: true, downloadSubdir, downloadAskLocation });
+    })().catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === "SET_EXTENSION_ENABLED") {
     (async () => {
       const enabled = message.enabled !== false;
@@ -627,7 +692,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const images = Array.isArray(message.images) ? message.images.slice(0, 100) : [];
-        const results = await mapLimit(images, 4, async (image, index) => {
+        const settings = await getDownloadSettings();
+        // Chrome 的 saveAs 对话框需要串行打开，避免批量下载同时弹出多个选择器。
+        const concurrency = settings.downloadAskLocation ? 1 : 4;
+        const results = await mapLimit(images, concurrency, async (image, index) => {
           try {
             return { ok: true, ...(await queueDownload(image, index + 1)) };
           } catch (error) {
