@@ -113,6 +113,13 @@
 - “清空全部”清空插件捕获的所有图片、视频历史。
 - 缓存统计分别显示图片数、视频数；“立即整理”按捕获时间删除最旧媒体。
 
+### 8. 自动校验与本地迭代
+
+- 本地只需首次克隆仓库：`git clone -b feat/download-location-settings https://github.com/hongliangfang/DoubaoWaterMark-Remover.git`。
+- 后续同步修改使用 `git pull --ff-only`，在 `chrome://extensions/` 点击「重新加载」，不需要反复下载 ZIP。
+- GitHub Actions 的 `Validate Chrome extension` 工作流会在推送到 `main` 或 `feat/**` 分支时运行，检查 Manifest V3、静态资源引用和全部 JavaScript 语法，并上传一个可下载的 ZIP 构建产物。
+- GitHub Actions 通过后，再用本地已加载的扩展做豆包页面上的实际联调；自动校验不能替代真实会话测试。
+
 ## 常见问题
 
 ### 视频监听连接不上
