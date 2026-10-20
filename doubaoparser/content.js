@@ -23,10 +23,138 @@
   let readyToastShown = false;
 
   const SUPPORT_URL = "https://github.com/XiaoYu43002/DoubaoWaterMark-Remover";
+  const DIRECTORY_DB_NAME = "doubaoDownloadDirectory_v1";
+  const DIRECTORY_STORE_NAME = "settings";
 
   const mediaPanel = createMediaPanel();
   setStatus("listening");
   bootstrapExtensionEnabled();
+
+  function openDirectoryDb() {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) return reject(new Error("当前浏览器不支持本地目录权限保存"));
+      const request = indexedDB.open(DIRECTORY_DB_NAME, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(DIRECTORY_STORE_NAME);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("目录权限存储失败"));
+    });
+  }
+
+  async function loadDirectoryHandle() {
+    try {
+      const db = await openDirectoryDb();
+      return await new Promise((resolve, reject) => {
+        const request = db.transaction(DIRECTORY_STORE_NAME, "readonly")
+          .objectStore(DIRECTORY_STORE_NAME).get("downloadDirectory");
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function saveDirectoryHandle(handle) {
+    const db = await openDirectoryDb();
+    await new Promise((resolve, reject) => {
+      const request = db.transaction(DIRECTORY_STORE_NAME, "readwrite")
+        .objectStore(DIRECTORY_STORE_NAME).put(handle, "downloadDirectory");
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error || new Error("目录权限保存失败"));
+    });
+  }
+
+  function sanitizeLocalFilename(value, fallback = "file") {
+    return String(value || fallback).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").replace(/\s+/g, " ").trim() || fallback;
+  }
+
+  async function getWritableDirectory(handle) {
+    if (!handle) return null;
+    const permission = await handle.queryPermission?.({ mode: "readwrite" });
+    if (permission === "granted") return handle;
+    const requested = await handle.requestPermission?.({ mode: "readwrite" });
+    return requested === "granted" ? handle : null;
+  }
+
+  async function getNestedDirectory(handle, segments) {
+    let current = handle;
+    for (const segment of segments) {
+      const name = sanitizeLocalFilename(segment, "Doubao");
+      current = await current.getDirectoryHandle(name, { create: true });
+    }
+    return current;
+  }
+
+  async function writeResponseToFile(directory, filename, response) {
+    const fileHandle = await directory.getFileHandle(sanitizeLocalFilename(filename), { create: true });
+    const writable = await fileHandle.createWritable();
+    try {
+      if (response.body?.getReader) {
+        const reader = response.body.getReader();
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          await writable.write(part.value);
+        }
+      } else {
+        await writable.write(await response.blob());
+      }
+      await writable.close();
+    } catch (error) {
+      await writable.abort().catch(() => {});
+      throw error;
+    }
+  }
+
+  async function makeImageQualityResponse(response, quality) {
+    if (quality === "high") return response;
+    const bitmap = await createImageBitmap(await response.blob());
+    try {
+      const maxLongSide = quality === "compact" ? 1600 : 2560;
+      const scale = Math.min(1, maxLongSide / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.getContext("2d", { alpha: false }).drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve, reject) => canvas.toBlob(resolve, "image/webp", quality === "compact" ? 0.72 : 0.88));
+      if (!blob) throw new Error("图片压缩失败");
+      return new Response(blob, { headers: { "content-type": "image/webp" } });
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  async function writeMediaWithDirectory(handle, type, record, settings, index) {
+    const writableHandle = await getWritableDirectory(handle);
+    if (!writableHandle) throw new Error("基础文件夹权限未授予");
+    let sourceUrl = type === "image"
+      ? record.image_ori_raw_url || record.image_ori_url || record.best_url
+      : record.url;
+    if (type === "video" && record.fallback_api) {
+      const refreshed = await sendRuntimeMessage({ type: "REFRESH_VIDEO", video: record });
+      sourceUrl = refreshed?.ok !== false ? refreshed?.video?.url || sourceUrl : sourceUrl;
+    }
+    if (!sourceUrl) throw new Error("无可用媒体地址");
+    const response = await fetch(sourceUrl, { credentials: "omit", cache: "no-store" });
+    if (!response.ok) throw new Error(`媒体请求失败：HTTP ${response.status}`);
+    const extension = type === "image"
+      ? (settings.downloadQuality === "high" ? String(record.extension || "jpg").toLowerCase() : "webp")
+      : String(record.format || "mp4").toLowerCase();
+    const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+    const suffix = index ? `_${String(index).padStart(2, "0")}` : "";
+    const filename = type === "image"
+      ? `doubao_${stamp}${suffix}.${extension}`
+      : `${sanitizeLocalFilename(record.video_id || "video")}.${extension}`;
+    const baseSegments = String(settings.downloadSubdir || "Doubao").split("/").filter(Boolean);
+    const child = type === "image"
+      ? await getNestedDirectory(writableHandle, [...baseSegments, "doubao_original_images"])
+      : await getNestedDirectory(writableHandle, [...baseSegments, "doubao_original_media", sanitizeLocalFilename(record.conversation_chat_id || "chat")]);
+    const outputResponse = type === "image"
+      ? await makeImageQualityResponse(response, settings.downloadQuality)
+      : response;
+    await writeResponseToFile(child, filename, outputResponse);
+    return { filename, directory: writableHandle.name || "已选文件夹" };
+  }
 
   function showReadyToast() {
     if (!extensionEnabled || !document.documentElement || readyToastShown) return;
@@ -130,6 +258,9 @@
         .settings-input-row{display:flex;gap:6px;margin-top:5px}
         .settings-input-row input{min-width:0;flex:1;height:29px;padding:0 8px;border:1px solid #d4d4d8;border-radius:7px;color:#27272a;font-size:10px;outline:none}
         .settings-input-row input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+        .settings-folder-row{display:flex;align-items:center;gap:6px;margin-top:5px}
+        .settings-folder-row button{height:29px;padding:0 8px;border:1px solid #c7d6f2;border-radius:7px;background:#eff6ff;color:#1d4ed8;font-size:10px;white-space:nowrap}
+        .settings-folder-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#52525b;font-size:10px}
         .settings-check{display:flex;align-items:center;gap:6px;margin-top:8px;color:#52525b;font-size:10px}
         .settings-check input{margin:0}
         .settings-select{width:100%;height:29px;margin-top:5px;padding:0 7px;border:1px solid #d4d4d8;border-radius:7px;color:#27272a;font-size:10px;outline:none;background:#fff}
@@ -152,6 +283,8 @@
         <div id="body"><div id="list"><div class="empty">当前会话暂未识别到图片</div></div></div>
         <section id="settings-panel" hidden aria-label="下载设置">
           <div class="settings-title">下载设置</div>
+          <label class="settings-label">基础文件夹</label>
+          <div class="settings-folder-row"><button id="settings-pick-folder" type="button">选择文件夹</button><span id="settings-folder-name">未选择（使用浏览器下载）</span></div>
           <label class="settings-label" for="settings-subdir">保存子目录</label>
           <div class="settings-input-row"><input id="settings-subdir" type="text" placeholder="Doubao" autocomplete="off" spellcheck="false"></div>
           <label class="settings-label" for="settings-quality">下载画质</label>
@@ -189,6 +322,8 @@
     const settingsButton = shadow.getElementById("settings");
     const settingsPanel = shadow.getElementById("settings-panel");
     const settingsSubdir = shadow.getElementById("settings-subdir");
+    const settingsPickFolder = shadow.getElementById("settings-pick-folder");
+    const settingsFolderName = shadow.getElementById("settings-folder-name");
     const settingsQuality = shadow.getElementById("settings-quality");
     const settingsAskLocation = shadow.getElementById("settings-ask-location");
     const settingsHint = shadow.getElementById("settings-hint");
@@ -199,9 +334,19 @@
     enablePanelResize(panel, shadow.getElementById("resize-handle"));
     const objectUrls = new Set();
     const selectedKeys = new Set();
+    let downloadDirectoryHandle = null;
+    let downloadDirectoryName = "";
     let activeType = "image";
 
     const drag = enablePanelDrag(host, header);
+
+    loadDirectoryHandle().then((handle) => {
+      if (!handle) return;
+      downloadDirectoryHandle = handle;
+      downloadDirectoryName = handle.name || "已选文件夹";
+      settingsFolderName.textContent = downloadDirectoryName;
+      updateSettingsHint();
+    });
 
     shadow.getElementById("collapse").addEventListener("click", (event) => {
       panel.classList.toggle("collapsed");
@@ -225,6 +370,10 @@
     }));
 
     function updateSettingsHint() {
+      if (downloadDirectoryHandle) {
+        settingsHint.textContent = `基础文件夹：${downloadDirectoryName}；下载会直接写入该文件夹和子目录。`;
+        return;
+      }
       settingsHint.textContent = settingsAskLocation.checked
         ? "开启后单项或批量下载会由 Chrome 逐项询问保存位置。"
         : "保存到浏览器默认下载目录下的相对子目录。";
@@ -252,6 +401,28 @@
 
     settingsCancel.addEventListener("click", () => {
       settingsPanel.hidden = true;
+    });
+
+    settingsPickFolder.addEventListener("click", async () => {
+      if (typeof window.showDirectoryPicker !== "function") {
+        settingsFolderName.textContent = "当前浏览器不支持文件夹模式";
+        return;
+      }
+      settingsPickFolder.disabled = true;
+      try {
+        const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+        const writable = await getWritableDirectory(handle);
+        if (!writable) throw new Error("没有获得文件夹写入权限");
+        await saveDirectoryHandle(handle);
+        downloadDirectoryHandle = handle;
+        downloadDirectoryName = handle.name || "已选文件夹";
+        settingsFolderName.textContent = downloadDirectoryName;
+        settingsHint.textContent = "已选择基础文件夹；页内面板下载会直接写入该文件夹和子目录。";
+      } catch (error) {
+        if (error?.name !== "AbortError") settingsFolderName.textContent = `选择失败：${error.message || "未知错误"}`;
+      } finally {
+        settingsPickFolder.disabled = false;
+      }
     });
 
     settingsSave.addEventListener("click", async () => {
@@ -295,12 +466,52 @@
       return selectedCount;
     }
 
+    async function submitSingleDownload(type, record) {
+      if (downloadDirectoryHandle) {
+        try {
+          const settings = await sendRuntimeMessage({ type: "GET_DOWNLOAD_SETTINGS" });
+          await writeMediaWithDirectory(downloadDirectoryHandle, type, record, settings, 0);
+          setStatus("captured", `已保存到 ${downloadDirectoryName}`);
+          return { ok: true, direct: true };
+        } catch (error) {
+          setStatus("error", `文件夹写入失败，已改用浏览器下载：${error.message || "未知错误"}`);
+        }
+      }
+      return sendRuntimeMessage(type === "image"
+        ? { type: "DOWNLOAD_IMAGE", image: record }
+        : { type: "DOWNLOAD_VIDEO", video: record });
+    }
+
     async function submitDownloads(items, labelButton, completeLabel) {
       if (!items.length) return;
       downloadAll.disabled = true;
       downloadSelected.disabled = true;
       const downloadLabel = labelButton.querySelector("span");
       if (downloadLabel) downloadLabel.textContent = "提交中…";
+      if (downloadDirectoryHandle) {
+        const settings = await sendRuntimeMessage({ type: "GET_DOWNLOAD_SETTINGS" });
+        let success = 0;
+        const failed = [];
+        for (let index = 0; index < items.length; index += 1) {
+          try {
+            await writeMediaWithDirectory(downloadDirectoryHandle, activeType, items[index], settings, index + 1);
+            success += 1;
+          } catch (_) {
+            failed.push(items[index]);
+          }
+        }
+        if (failed.length) {
+          const fallback = activeType === "image"
+            ? { type: "BATCH_DOWNLOAD", images: failed }
+            : { type: "BATCH_VIDEO_DOWNLOAD", videos: failed };
+          await sendRuntimeMessage(fallback);
+        }
+        downloadAll.disabled = false;
+        updateSelectionUi();
+        if (downloadLabel) downloadLabel.textContent = completeLabel;
+        setStatus(failed.length ? "error" : "captured", `已直接保存 ${success} 项${failed.length ? `，另有 ${failed.length} 项交给浏览器下载` : ""}`);
+        return;
+      }
       const response = await sendRuntimeMessage(activeType === "image"
         ? { type: "BATCH_DOWNLOAD", images: items }
         : { type: "BATCH_VIDEO_DOWNLOAD", videos: items });
@@ -377,9 +588,7 @@
       download.addEventListener("click", async () => {
         download.disabled = true;
         download.textContent = "提交…";
-        const response = await sendRuntimeMessage(type === "image"
-          ? { type: "DOWNLOAD_IMAGE", image: record }
-          : { type: "DOWNLOAD_VIDEO", video: record });
+        const response = await submitSingleDownload(type, record);
         download.disabled = false;
         download.textContent = "下载";
         setStatus(response?.ok === false ? "error" : "captured", response?.ok === false ? response.error : "下载任务已提交");
