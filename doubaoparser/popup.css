@@ -186,6 +186,97 @@ button, select { font: inherit; }
   backdrop-filter: blur(10px);
 }
 
+.download-settings {
+  margin-top: 10px;
+  border: 1px solid #dfe6f3;
+  border-radius: 11px;
+  background: #f8faff;
+}
+
+.download-settings summary {
+  padding: 8px 10px;
+  color: #344054;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.download-settings-body {
+  padding: 0 10px 10px;
+}
+
+.setting-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #667085;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.setting-inline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.setting-inline input[type="text"] {
+  min-width: 0;
+  flex: 1;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid #d8e0ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #1d2939;
+  font-size: 11px;
+  outline: none;
+}
+
+.setting-inline input[type="text"]:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(11, 95, 255, .1);
+}
+
+.setting-inline .secondary {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid #c7d6f2;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--blue-deep);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.setting-inline .secondary:hover {
+  background: var(--blue-soft);
+}
+
+.setting-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  color: #344054;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.setting-check input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--blue);
+}
+
+.setting-hint {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .filter-row {
   display: flex;
   align-items: center;
