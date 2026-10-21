@@ -22,7 +22,6 @@
   let readyToastHideTimer = null;
   let readyToastShown = false;
 
-  const SUPPORT_URL = "https://github.com/XiaoYu43002/DoubaoWaterMark-Remover";
   const DIRECTORY_DB_NAME = "doubaoDownloadDirectory_v1";
   const DIRECTORY_STORE_NAME = "settings";
 
@@ -235,7 +234,9 @@
         #selection-toolbar input:disabled{cursor:not-allowed}.selection-summary{color:#64748b;white-space:nowrap}
         .empty{padding:28px 10px;text-align:center;color:#71717a;font-size:11px;line-height:1.6}
         /* 媒体卡片只随宽度温和缩放，高度不随面板高度无限增大。 */
-        .item{display:flex;align-items:center;gap:clamp(6px,1.4cqw,12px);min-width:0;min-height:66px;max-height:118px;margin-bottom:7px;padding:clamp(6px,1.25cqw,10px);border:1px solid #e4e4e7;border-radius:10px;background:#fff}
+        .item{display:flex;align-items:center;gap:clamp(6px,1.4cqw,12px);min-width:0;min-height:66px;max-height:118px;margin-bottom:7px;padding:clamp(6px,1.25cqw,10px);border:1px solid #e4e4e7;border-radius:10px;background:#fff;cursor:pointer;user-select:none}
+        .item:hover{border-color:#93c5fd}
+        .item:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
         .item.selected{border-color:#7aa7ff;background:#f7faff;box-shadow:0 0 0 2px rgba(37,99,235,.08)}
         .select-wrap{display:grid;place-items:center;flex:0 0 18px;width:18px}
         .select-wrap input{width:15px;height:15px;margin:0;accent-color:#2563eb;cursor:pointer}
@@ -246,13 +247,10 @@
         .download{flex:0 0 auto;max-width:82px;height:clamp(29px,5.3cqw,36px);padding:0 clamp(7px,1.5cqw,12px);border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:clamp(10px,1.6cqw,12px)}
         footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:0 0 auto;align-items:center;gap:7px;padding:9px 11px;border-top:1px solid #e4e4e7;background:#fff}
         footer button{display:inline-flex;min-width:0;align-items:center;justify-content:center;gap:5px;height:31px;padding:0 6px;border:0;border-radius:9px;font-size:clamp(10px,1.55cqw,12px);font-weight:600;white-space:nowrap}
-        @container (min-width:520px){footer{grid-template-columns:repeat(4,minmax(0,1fr))}}
+        @container (min-width:520px){footer{grid-template-columns:repeat(3,minmax(0,1fr))}#panel #download-all{grid-column:auto}}
         @container (max-width:320px){.item{gap:5px}.thumb{width:48px;flex-basis:48px}.download{padding:0 7px}.info strong{font-size:11px}}
         footer button svg{width:14px;height:14px;flex:0 0 auto}
-        #support-author{background:#f4f4f5;color:#3f3f46}
-        #support-author:hover{background:#e4e4e7}
-        #support-author svg{stroke:#ef4444;fill:none}
-        #download-all{background:#2563eb;color:#fff}
+        #download-all{grid-column:1/-1;background:#2563eb;color:#fff}
         #download-all svg{stroke:currentColor;fill:none}
         #download-all:disabled{opacity:.45;cursor:not-allowed}
         #download-selected{background:#0f766e;color:#fff}
@@ -309,10 +307,6 @@
           <div class="settings-actions"><button id="settings-cancel" type="button">取消</button><button id="settings-save" type="button">保存设置</button></div>
         </section>
         <footer>
-          <button id="support-author" type="button" title="支持作者十一木">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 5.6a5.1 5.1 0 0 0-7.2 0L12 7.2l-1.6-1.6a5.1 5.1 0 0 0-7.2 7.2l1.6 1.6L12 21.2l7.2-7.2 1.6-1.6a5.1 5.1 0 0 0 0-7.2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>支持作者</span>
-          </button>
           <button id="download-selected" type="button" disabled>
             <span>下载选中 (0)</span>
           </button>
@@ -334,7 +328,6 @@
     const list = shadow.getElementById("list");
     const selectAllCurrent = shadow.getElementById("select-all-current");
     const selectionSummary = shadow.getElementById("selection-summary");
-    const supportAuthor = shadow.getElementById("support-author");
     const settingsButton = shadow.getElementById("settings");
     const settingsPanel = shadow.getElementById("settings-panel");
     const settingsSubdir = shadow.getElementById("settings-subdir");
@@ -482,10 +475,6 @@
       setStatus("captured");
     });
 
-    supportAuthor.addEventListener("click", () => {
-      window.open(SUPPORT_URL, "_blank", "noopener,noreferrer");
-    });
-
     function activeItems() {
       return activeType === "image" ? sessionImageRecords() : Array.from(sessionVideos.values());
     }
@@ -496,6 +485,31 @@
 
     function selectionKey(type, record) {
       return `${type}:${type === "image" ? record.image_id : record.video_record_id}`;
+    }
+
+    function toggleMediaSelection(type, key, event) {
+      const items = orderedActiveItems();
+      const currentIndex = items.findIndex((record) => selectionKey(type, record) === key);
+      if (currentIndex < 0) return;
+      const anchorIndex = lastSelectedKey
+        ? items.findIndex((record) => selectionKey(type, record) === lastSelectedKey)
+        : -1;
+
+      if (event.shiftKey && anchorIndex >= 0) {
+        // Shift always selects the whole inclusive visible range.
+        // Preserve any selections outside the range.
+        for (let index = Math.min(anchorIndex, currentIndex);
+          index <= Math.max(anchorIndex, currentIndex); index += 1) {
+          selectedKeys.add(selectionKey(type, items[index]));
+        }
+      } else {
+        // Clicking the card/checkbox toggles this item.
+        // Ctrl/Command clicking also leaves every other item unchanged.
+        if (selectedKeys.has(key)) selectedKeys.delete(key);
+        else selectedKeys.add(key);
+      }
+      lastSelectedKey = key;
+      updateSelectionUi(items);
     }
 
     function updateSelectionUi(items = orderedActiveItems()) {
@@ -511,6 +525,8 @@
       list.querySelectorAll(".item[data-selection-key]").forEach((item) => {
         const selected = selectedKeys.has(item.dataset.selectionKey);
         item.classList.toggle("selected", selected);
+        item.setAttribute("aria-label", (selected ? "已选" : "未选") +
+          (item.dataset.mediaLabel || "媒体") + "，按空格或回车切换");
         const checkbox = item.querySelector(".select-wrap input");
         if (checkbox) checkbox.checked = selected;
       });
@@ -645,42 +661,31 @@
       item.className = "item";
       const key = selectionKey(type, record);
       item.dataset.selectionKey = key;
+      item.dataset.mediaLabel = type === "image" ? "图片" : "视频";
       item.classList.toggle("selected", selectedKeys.has(key));
-      const selectWrap = document.createElement("label");
+      item.tabIndex = 0;
+      item.setAttribute("role", "group");
+      item.setAttribute("aria-label", (selectedKeys.has(key) ? "已选" : "未选") +
+        item.dataset.mediaLabel + "，按空格或回车切换");
+      item.title = "点击卡片选择或取消；Shift 连选；Ctrl/Command 单项切换";
+      item.addEventListener("click", (event) => {
+        // Leave the individual download button and other interactive controls alone.
+        if (event.target.closest?.("button, a, select, textarea")) return;
+        toggleMediaSelection(type, key, event);
+      });
+      item.addEventListener("keydown", (event) => {
+        if (event.target !== item || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        toggleMediaSelection(type, key, event);
+      });
+      // Avoid a label's forwarded second click on its nested checkbox.
+      const selectWrap = document.createElement("div");
       selectWrap.className = "select-wrap";
       selectWrap.title = "选择下载";
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = selectedKeys.has(key);
       checkbox.setAttribute("aria-label", `选择${type === "image" ? "图片" : "视频"}`);
-      checkbox.addEventListener("click", (event) => {
-        const items = orderedActiveItems();
-        const currentIndex = items.findIndex((recordItem) => selectionKey(type, recordItem) === key);
-        const previousIndex = lastSelectedKey
-          ? items.findIndex((recordItem) => selectionKey(type, recordItem) === lastSelectedKey)
-          : -1;
-        if (event.shiftKey && currentIndex >= 0 && previousIndex >= 0) {
-          event.preventDefault();
-          const nextChecked = !selectedKeys.has(key);
-          const start = Math.min(currentIndex, previousIndex);
-          const end = Math.max(currentIndex, previousIndex);
-          for (let index = start; index <= end; index += 1) {
-            const rangeKey = selectionKey(type, items[index]);
-            if (nextChecked) selectedKeys.add(rangeKey);
-            else selectedKeys.delete(rangeKey);
-          }
-          lastSelectedKey = key;
-          updateSelectionUi(items);
-          return;
-        }
-        // Normal clicks and Ctrl/Command clicks use the native checkbox toggle.
-        // The change handler below applies that one-item toggle to selectedKeys.
-        lastSelectedKey = key;
-      });
-      checkbox.addEventListener("change", () => {
-        if (checkbox.checked) selectedKeys.add(key); else selectedKeys.delete(key);
-        updateSelectionUi(orderedActiveItems());
-      });
       selectWrap.appendChild(checkbox);
       const image = document.createElement("img");
       image.className = "thumb";
@@ -715,7 +720,8 @@
       const download = document.createElement("button");
       download.className = "download";
       download.textContent = "下载";
-      download.addEventListener("click", async () => {
+      download.addEventListener("click", async (event) => {
+        event.stopPropagation();
         download.disabled = true;
         download.textContent = "提交…";
         const response = await submitSingleDownload(type, record);

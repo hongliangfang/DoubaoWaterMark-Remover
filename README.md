@@ -1,7 +1,7 @@
 # 豆包无水印图片和视频一键下载
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-2.8.1-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.8.2-blue.svg)](./CHANGELOG.md)
 [![GitHub stars](https://img.shields.io/github/stars/XiaoYu43002/DoubaoWaterMark-Remover)](https://github.com/XiaoYu43002/DoubaoWaterMark-Remover/stargazers)
 
 在豆包对话页一键获取无水印原图与高清无水印视频的工具/浏览器插件。支持一键下载
@@ -62,7 +62,7 @@
 - 🎛️ **页内蓝色面板**：打开豆包会话即可出现，可获取当前会话的所有资源，并且可按需选择获取图片或者视频
 - 🗂️ **插件看板资源库**：可打开插件按钮查看完整案板，支持打开后的所有会话资源处理并按「会话标题 - Chat ID」进行管理，方便区分
 - ✅ 勾选批量下载；支持图片 + 视频一键或者批量下载
-- ✅ 页内面板每张媒体左侧都有勾选框，可只提交选中的图片或视频
+- ✅ 页内面板整张媒体卡片（缩略图、文字、空白处）均可点击切换选择；Shift 连选、Ctrl/Command 单项切换，单张下载按钮保持独立
 - ✅ 下载设置支持高清原图、标准高清和节省空间三档；低画质图片先从无水印原图本地压缩，视频按无水印候选清晰度选择
 
 ### 📚 历史对话素材
@@ -83,7 +83,7 @@
 
 - 🟢 **加载成功**：插件已注入当前页，状态灯为绿
 - 📊 **空会话提示**：未识别到媒体时显示占位文案
-- ❤️ **支持作者 / 全部下载**：底部固定操作区（无媒体时下载按钮不可用）
+- ⬇️ **下载选中 / 选中另存为 / 全部下载**：底部固定操作区（未选择媒体时禁用对应操作）
 
 ### 2. 生成图片：水印自动消失
 
