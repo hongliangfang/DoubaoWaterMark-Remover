@@ -219,7 +219,7 @@
       <style>
         *{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif}
         button{font:inherit;cursor:pointer}
-        #panel{display:flex;flex-direction:column;width:326px;height:280px;min-width:260px;min-height:180px;max-width:calc(100vw - 32px);max-height:calc(100vh - 48px);overflow:hidden;border:1px solid rgba(0,87,255,.18);border-radius:14px;
+        #panel{display:flex;flex-direction:column;container-type:inline-size;width:326px;height:280px;min-width:260px;min-height:180px;max-width:calc(100vw - 32px);max-height:calc(100vh - 48px);overflow:hidden;border:1px solid rgba(0,87,255,.18);border-radius:14px;
           background:#fff;color:#27272a;box-shadow:0 16px 40px rgba(20,45,90,.18)}
         header{display:grid;grid-template-columns:28px minmax(0,1fr) 28px 28px;flex:0 0 auto;align-items:center;gap:9px;padding:10px 11px;background:linear-gradient(110deg,#0057ff,#2387ff);color:#fff;cursor:move;user-select:none;touch-action:none}
         header .icon{cursor:pointer}
@@ -234,15 +234,20 @@
         #selection-toolbar input{width:14px;height:14px;margin:0;accent-color:#2563eb;cursor:pointer}
         #selection-toolbar input:disabled{cursor:not-allowed}.selection-summary{color:#64748b;white-space:nowrap}
         .empty{padding:28px 10px;text-align:center;color:#71717a;font-size:11px;line-height:1.6}
-        .item{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:7px;border:1px solid #e4e4e7;border-radius:10px;background:#fff}
+        /* 媒体卡片只随宽度温和缩放，高度不随面板高度无限增大。 */
+        .item{display:flex;align-items:center;gap:clamp(6px,1.4cqw,12px);min-width:0;min-height:66px;max-height:118px;margin-bottom:7px;padding:clamp(6px,1.25cqw,10px);border:1px solid #e4e4e7;border-radius:10px;background:#fff}
         .item.selected{border-color:#7aa7ff;background:#f7faff;box-shadow:0 0 0 2px rgba(37,99,235,.08)}
         .select-wrap{display:grid;place-items:center;flex:0 0 18px;width:18px}
         .select-wrap input{width:15px;height:15px;margin:0;accent-color:#2563eb;cursor:pointer}
-        .thumb{width:54px;height:54px;flex:0 0 54px;border-radius:8px;object-fit:cover;background:#e4e4e7}.info{min-width:0;flex:1}
-        .info strong{display:block;font-size:11px}.info span{display:block;margin-top:4px;overflow:hidden;text-overflow:ellipsis;
-          white-space:nowrap;color:#a1a1aa;font-size:9px}.download{height:29px;padding:0 9px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:10px}
-        footer{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:7px;padding:9px 11px;border-top:1px solid #e4e4e7;background:#fff;flex-wrap:wrap}
-        footer button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:31px;padding:0 12px;border:0;border-radius:9px;font-size:11px;font-weight:600}
+        .thumb{display:block;width:clamp(48px,14cqw,88px);height:auto;aspect-ratio:1/1;max-height:88px;flex:0 0 clamp(48px,14cqw,88px);border-radius:8px;object-fit:contain;background:#f4f4f5}
+        .info{min-width:0;flex:1 1 auto;overflow:hidden}
+        .info strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(11px,1.8cqw,14px)}
+        .info span{display:block;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#a1a1aa;font-size:clamp(9px,1.4cqw,11px)}
+        .download{flex:0 0 auto;max-width:82px;height:clamp(29px,5.3cqw,36px);padding:0 clamp(7px,1.5cqw,12px);border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:clamp(10px,1.6cqw,12px)}
+        footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:0 0 auto;align-items:center;gap:7px;padding:9px 11px;border-top:1px solid #e4e4e7;background:#fff}
+        footer button{display:inline-flex;min-width:0;align-items:center;justify-content:center;gap:5px;height:31px;padding:0 6px;border:0;border-radius:9px;font-size:clamp(10px,1.55cqw,12px);font-weight:600;white-space:nowrap}
+        @container (min-width:520px){footer{grid-template-columns:repeat(4,minmax(0,1fr))}}
+        @container (max-width:320px){.item{gap:5px}.thumb{width:48px;flex-basis:48px}.download{padding:0 7px}.info strong{font-size:11px}}
         footer button svg{width:14px;height:14px;flex:0 0 auto}
         #support-author{background:#f4f4f5;color:#3f3f46}
         #support-author:hover{background:#e4e4e7}
