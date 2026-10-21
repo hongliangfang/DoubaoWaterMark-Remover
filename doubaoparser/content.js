@@ -228,7 +228,7 @@
         .icon{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:8px;background:rgba(255,255,255,.18);color:#fff}
         .icon:hover{background:rgba(255,255,255,.28)}.icon svg{width:14px;height:14px;transition:transform .2s}.collapsed #collapse svg{transform:rotate(180deg)}
         #tabs{display:flex;flex:0 0 auto;padding:7px 10px 0;background:#fff;border-bottom:1px solid #e4e4e7}.tab{flex:1;height:32px;border:0;border-bottom:2px solid transparent;background:#fff;color:#71717a;font-size:11px}.tab.active{border-bottom-color:#0057ff;color:#0057ff;font-weight:700}
-        #body{min-height:0;flex:1 1 auto;overflow:auto;padding:10px;background:#f7f8fa}#panel.collapsed{height:auto;max-height:none}#panel.collapsed #tabs,#panel.collapsed #body,#panel.collapsed footer{display:none}
+        #body{min-height:0;flex:1 1 auto;overflow:auto;padding:10px;background:#f7f8fa}#panel.collapsed{height:auto !important;min-height:0;max-height:none}#panel.collapsed #tabs,#panel.collapsed #body,#panel.collapsed #settings-panel,#panel.collapsed footer{display:none}
         #selection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:6px 8px;border:1px solid #dbe4f5;border-radius:8px;background:#eff6ff;color:#334155;font-size:10px}
         #selection-toolbar label{display:inline-flex;align-items:center;gap:6px;min-width:0;cursor:pointer;user-select:none}
         #selection-toolbar input{width:14px;height:14px;margin:0;accent-color:#2563eb;cursor:pointer}
@@ -343,7 +343,7 @@
     const downloadAll = shadow.getElementById("download-all");
     const downloadSelected = shadow.getElementById("download-selected");
     const downloadSelectedFolder = shadow.getElementById("download-selected-folder");
-    enablePanelResize(panel, shadow.getElementById("resize-handle"));
+    const resize = enablePanelResize(panel, shadow.getElementById("resize-handle"));
     const objectUrls = new Set();
     const selectedKeys = new Set();
     let downloadDirectoryHandle = null;
@@ -361,10 +361,18 @@
       updateSettingsHint();
     });
 
-    shadow.getElementById("collapse").addEventListener("click", (event) => {
-      panel.classList.toggle("collapsed");
-      event.currentTarget.title = panel.classList.contains("collapsed") ? "展开面板" : "收起面板";
-      drag.reanchorAfterCollapse();
+    const collapseButton = shadow.getElementById("collapse");
+    collapseButton.setAttribute("aria-expanded", "true");
+    collapseButton.addEventListener("click", () => {
+      const bottomGap = Math.max(8, window.innerHeight - host.getBoundingClientRect().bottom);
+      const collapsed = panel.classList.toggle("collapsed");
+      if (collapsed) settingsPanel.hidden = true;
+      else resize.clampToViewport();
+      const label = collapsed ? "展开面板" : "收起面板";
+      collapseButton.title = label;
+      collapseButton.setAttribute("aria-label", label);
+      collapseButton.setAttribute("aria-expanded", String(!collapsed));
+      drag.reanchorAfterCollapse(bottomGap);
     });
     shadow.getElementById("close").addEventListener("click", () => {
       panel.classList.add("closed");
@@ -373,6 +381,7 @@
     });
     shadow.getElementById("launcher").addEventListener("click", () => {
       panel.classList.remove("closed");
+      resize.clampToViewport();
       drag.dockOpen();
       drag.restorePosition();
     });
@@ -867,11 +876,16 @@
 
     handle.addEventListener("pointerup", endResize);
     handle.addEventListener("pointercancel", endResize);
-    window.addEventListener("resize", () => {
+    function clampToViewport() {
+      // 折叠时的标题栏高度不应覆盖展开时的自定义高度。
+      if (panel.classList.contains("collapsed") || panel.classList.contains("closed")) return;
       const rect = panel.getBoundingClientRect();
-      applySize(rect.width, rect.height);
-    });
+      applySize(Number.parseFloat(panel.style.width) || rect.width,
+        Number.parseFloat(panel.style.height) || rect.height);
+    }
+    window.addEventListener("resize", clampToViewport);
     restoreSize();
+    return { clampToViewport };
   }
 
   function enablePanelDrag(host, handle) {
@@ -933,10 +947,10 @@
     }
 
     /** 收缩后高度变矮时保持底边不动，避免关掉后悬浮球漂到画面中间 */
-    function reanchorAfterCollapse() {
+    function reanchorAfterCollapse(previousBottomGap) {
       if (!host.style.left || host.style.left === "auto") return;
-      const rect = host.getBoundingClientRect();
-      const bottomGap = Math.max(8, window.innerHeight - rect.bottom);
+      // 使用折叠前的底部距离定位，展开时也能保持靠近原来的位置。
+      const bottomGap = Number.isFinite(previousBottomGap) ? previousBottomGap : 8;
       requestAnimationFrame(() => {
         const next = host.getBoundingClientRect();
         const nextTop = Math.max(8, window.innerHeight - bottomGap - next.height);
